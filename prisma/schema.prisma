@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id String @id @default(cuid())
+  name String
+  slug String @unique
+  theme Json? // Collor theme settings
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  weeklyCapacities WeeklyCapacity[]
+  specialDateCapacities SpecialDateCapacity[]
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  name String?
+  password String
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  // Campos de autenticação
+  emailVerified Boolean @default(false)
+  emailVerificationToken String?
+  passwordResetToken String?
+  passwordResetTokenExpiry DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WeeklyCapacity {
+  id String @id @default(cuid())
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  
+  // Dias da semana (0 = Domingo, 1 = Segunda, etc.)
+  dayOfWeek Int // 0-6
+  limit Int
+  enabled Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([tenantId, dayOfWeek])
+}
+
+model SpecialDateCapacity {
+  id String @id @default(cuid())
+  tenantId String
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  
+  date DateTime @db.Date
+  limit Int
+  description String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([tenantId, date])
+}

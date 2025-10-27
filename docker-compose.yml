@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  db:
+    image: postgres:16
+    container_name: reservei_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: reservei
+      POSTGRES_PASSWORD: reservei
+      POSTGRES_DB: reservei
+    ports:
+      - "5438:5432"   # host 5438 -> container 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
