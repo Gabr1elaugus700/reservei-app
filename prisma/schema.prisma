@@ -8,64 +8,100 @@ datasource db {
 }
 
 model Tenant {
-  id String @id @default(cuid())
-  name String
-  slug String @unique
+  id    String @id @default(cuid())
+  name  String
+  slug  String @unique
   theme Json? // Collor theme settings
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
-  weeklyCapacities WeeklyCapacity[]
+  // users                 User[]
+  weeklyCapacities      WeeklyCapacity[]
   specialDateCapacities SpecialDateCapacity[]
 }
 
-model User {
-  id String @id @default(cuid())
-  email String @unique
-  name String?
-  password String
-  tenantId String
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-
-  // Campos de autenticação
-  emailVerified Boolean @default(false)
-  emailVerificationToken String?
-  passwordResetToken String?
-  passwordResetTokenExpiry DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model WeeklyCapacity {
-  id String @id @default(cuid())
-  tenantId String
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
   // Dias da semana (0 = Domingo, 1 = Segunda, etc.)
   dayOfWeek Int // 0-6
-  limit Int
-  enabled Boolean @default(true)
-  
+  limit     Int
+  enabled   Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([tenantId, dayOfWeek])
 }
 
 model SpecialDateCapacity {
-  id String @id @default(cuid())
-  tenantId String
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  
-  date DateTime @db.Date
-  limit Int
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  date        DateTime @db.Date
+  limit       Int
   description String?
-  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, date])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  @@unique([tenantId, date])
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
 }
