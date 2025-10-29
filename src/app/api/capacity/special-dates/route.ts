@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await capacityService.addSpecialDate(user.tenantId, {
+    await capacityService.addSpecialDate({
       date,
       limit,
       description

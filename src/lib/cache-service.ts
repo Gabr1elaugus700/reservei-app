@@ -37,11 +37,8 @@ class CacheService {
     USER_PREFERENCES: 'user-preferences',
   } as const;
 
-  /**
-   * Gera chave de cache específica por tenant
-   */
-  private static getTenantKey(key: string, tenantId: string): string {
-    return `${this.CACHE_PREFIX}${tenantId}:${key}`;
+  private static getKey(key: string): string {
+    return `${this.CACHE_PREFIX}${key}`;
   }
 
   /**
@@ -50,11 +47,10 @@ class CacheService {
   static setCache<T>(
     key: string, 
     data: T, 
-    tenantId: string, 
     ttl: number = this.DEFAULT_TTL
   ): void {
     try {
-      const cacheKey = this.getTenantKey(key, tenantId);
+      const cacheKey = this.getKey(key);
       const cacheItem: CacheItem<T> = {
         data,
         timestamp: Date.now(),
@@ -70,9 +66,9 @@ class CacheService {
   /**
    * Recupera dados do cache se ainda válidos
    */
-  static getCache<T>(key: string, tenantId: string): T | null {
+  static getCache<T>(key: string): T | null {
     try {
-      const cacheKey = this.getTenantKey(key, tenantId);
+      const cacheKey = this.getKey(key);
       const cached = localStorage.getItem(cacheKey);
       
       if (!cached) return null;
@@ -81,7 +77,7 @@ class CacheService {
       
       // Verificar se expirou
       if (Date.now() > cacheItem.expiry) {
-        this.removeCache(key, tenantId);
+        this.removeCache(key);
         return null;
       }
 
@@ -95,9 +91,9 @@ class CacheService {
   /**
    * Remove item específico do cache
    */
-  static removeCache(key: string, tenantId: string): void {
+  static removeCache(key: string): void {
     try {
-      const cacheKey = this.getTenantKey(key, tenantId);
+      const cacheKey = this.getKey(key);
       localStorage.removeItem(cacheKey);
     } catch (error) {
       console.warn('Erro ao remover cache:', error);
@@ -107,25 +103,7 @@ class CacheService {
   /**
    * Limpa todo o cache do tenant
    */
-  static clearTenantCache(tenantId: string): void {
-    try {
-      const tenantPrefix = `${this.CACHE_PREFIX}${tenantId}:`;
-      const keysToRemove: string[] = [];
-
-      // Encontrar todas as chaves do tenant
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(tenantPrefix)) {
-          keysToRemove.push(key);
-        }
-      }
-
-      // Remover as chaves encontradas
-      keysToRemove.forEach(key => localStorage.removeItem(key));
-    } catch (error) {
-      console.warn('Erro ao limpar cache do tenant:', error);
-    }
-  }
+  // clearTenantCache removido (aplicação single-tenant)
 
   /**
    * Limpa todo o cache da aplicação
@@ -152,14 +130,14 @@ class CacheService {
   /**
    * Verifica se existe cache válido para uma chave
    */
-  static hasValidCache(key: string, tenantId: string): boolean {
-    return this.getCache(key, tenantId) !== null;
+  static hasValidCache(key: string): boolean {
+    return this.getCache(key) !== null;
   }
 
   /**
    * Obtém informações sobre o cache (para debugging)
    */
-  static getCacheInfo(tenantId: string): {
+  static getCacheInfo(): {
     keys: string[];
     totalSize: number;
     items: Array<{
@@ -183,11 +161,9 @@ class CacheService {
     };
 
     try {
-      const tenantPrefix = `${this.CACHE_PREFIX}${tenantId}:`;
-
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.startsWith(tenantPrefix)) {
+        if (key && key.startsWith(this.CACHE_PREFIX)) {
           const value = localStorage.getItem(key) || '';
           const size = new Blob([value]).size;
           
@@ -198,7 +174,7 @@ class CacheService {
             info.keys.push(key);
             info.totalSize += size;
             info.items.push({
-              key: key.replace(tenantPrefix, ''),
+              key: key.replace(this.CACHE_PREFIX, ''),
               size,
               timestamp: cacheItem.timestamp,
               expiry: cacheItem.expiry,
@@ -219,13 +195,11 @@ class CacheService {
   /**
    * Limpa cache expirado automaticamente
    */
-  static cleanExpiredCache(tenantId?: string): number {
+  static cleanExpiredCache(): number {
     let cleaned = 0;
 
     try {
-      const prefix = tenantId 
-        ? `${this.CACHE_PREFIX}${tenantId}:` 
-        : this.CACHE_PREFIX;
+      const prefix = this.CACHE_PREFIX;
 
       const keysToRemove: string[] = [];
 
@@ -265,7 +239,6 @@ export function useCache() {
     setCache: CacheService.setCache,
     getCache: CacheService.getCache,
     removeCache: CacheService.removeCache,
-    clearTenantCache: CacheService.clearTenantCache,
     clearAllCache: CacheService.clearAllCache,
     hasValidCache: CacheService.hasValidCache,
     getCacheInfo: CacheService.getCacheInfo,

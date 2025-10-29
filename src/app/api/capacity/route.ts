@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    const config = await capacityService.getCapacityConfiguration(user.tenantId);
+    const config = await capacityService.getCapacityConfiguration();
     
     return NextResponse.json({
       success: true,
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await capacityService.saveCapacityConfiguration(user.tenantId, {
+    await capacityService.saveCapacityConfiguration({
       weeklyCapacities,
       specialDates
     });

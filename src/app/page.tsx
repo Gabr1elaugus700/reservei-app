@@ -14,10 +14,10 @@ export default async function Home() {
       <div className="flex flex-col items-center justify-center h-screen gap-4">
         <h1 className="text-4xl font-bold">Reservei</h1>
         <div className="flex gap-4 mt-8">
-          <Button size="lg">
+          <Button size="lg" variant="outline" className="hover:border-gray-900 border-2 transition-opacity hover:cursor-pointer">
             <Link href="/signup">Registre-se</Link>
           </Button>
-          <Button size="lg">
+          <Button size="lg" className="hover:opacity-80 transition-opacity hover:cursor-pointer">
             <Link href="/signin">Login</Link>
           </Button>
         </div>

@@ -17,13 +17,11 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useCapacityManagement } from "@/app/hooks/use-capacity-management";
-import useTenantTheme from "@/app/hooks/use-tenant-theme";
 import { useAuth } from "@/app/hooks/use-auth";
 import { formatDate } from "@/app/lib/format-date";
 
 export default function CapacityManagement() {
   const { user, logout } = useAuth();
-  const { loading: themeLoading } = useTenantTheme();
   const {
     weeklyLimits,
     specialDates,
@@ -86,7 +84,7 @@ export default function CapacityManagement() {
   };
 
   // Mostrar loading enquanto carrega autenticação ou tema
-  if (loading || themeLoading || !isAuthenticated) {
+  if (loading || !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center space-x-2">
@@ -112,11 +110,7 @@ export default function CapacityManagement() {
               <h1 className="text-xl font-semibold text-gray-900">
                 Gerenciamento de Capacidade
               </h1>
-              {user?.tenant && (
-                <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                  {user.tenant.name}
-                </span>
-              )}
+              
             </div>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-2 text-sm text-gray-600">

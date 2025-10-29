@@ -6,19 +6,13 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string | null;
-  tenantId: string;
-  tenant: {
-    id: string;
-    name: string;
-    slug: string;
-  };
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, tenantSlug?: string) => Promise<boolean>;
-  register: (email: string, password: string, name: string, tenantSlug?: string) => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (email: string, password: string, name: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refetch: () => Promise<void>;
 }
@@ -53,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchUser();
   }, []);
 
-  const login = async (email: string, password: string, tenantSlug?: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -61,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ email, password, tenantSlug }),
+        body: JSON.stringify({ email, password }),
       });
 
       if (response.ok) {
@@ -78,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, name: string, tenantSlug?: string): Promise<boolean> => {
+  const register = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
@@ -86,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ email, password, name, tenantSlug }),
+        body: JSON.stringify({ email, password, name }),
       });
 
       if (response.ok) {

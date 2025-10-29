@@ -30,7 +30,7 @@ export async function GET(
       );
     }
 
-    const capacity = await capacityService.getCapacityForDate(user.tenantId, date);
+    const capacity = await capacityService.getCapacityForDate(date);
 
     return NextResponse.json({
       success: true,

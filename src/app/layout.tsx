@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "App Reservei - Sistema Multi-Tenant",
-  description: "Sistema de reservas com suporte a múltiplos tenants e temas personalizados",
+  title: "App Reservei",
+  description: "Sistema de reservas",
 };
 
 export default function RootLayout({

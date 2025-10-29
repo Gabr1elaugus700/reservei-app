@@ -40,7 +40,6 @@ export function useCapacityManagement() {
 
   // Verificar se o usuário está autenticado
   const isAuthenticated = !!user;
-  const tenantId = user?.tenantId || '';
 
   // Mapear dados do backend para o formato do frontend
   const mapBackendToFrontend = (data: CapacityData) => {
@@ -87,7 +86,7 @@ export function useCapacityManagement() {
 
   // Carregar configurações do cache ou backend
   const loadConfiguration = useCallback(async () => {
-    if (!isAuthenticated || !tenantId) {
+    if (!isAuthenticated) {
       setLoading(false);
       return;
     }
@@ -97,8 +96,7 @@ export function useCapacityManagement() {
       
       // Tentar carregar do cache primeiro
       const cachedData = CacheService.getCache<CapacityData>(
-        CacheService.KEYS.CAPACITY, 
-        tenantId
+        CacheService.KEYS.CAPACITY
       );
 
       if (cachedData) {
@@ -127,7 +125,6 @@ export function useCapacityManagement() {
         CacheService.setCache(
           CacheService.KEYS.CAPACITY, 
           result.data, 
-          tenantId,
           30 * 60 * 1000 // 30 minutos
         );
       } else {
@@ -151,11 +148,11 @@ export function useCapacityManagement() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, tenantId]);
+  }, [isAuthenticated]);
 
   // Salvar configurações no backend e atualizar cache
   const saveConfiguration = async () => {
-    if (!isAuthenticated || !tenantId) {
+    if (!isAuthenticated) {
       toast.error('Usuário não autenticado');
       return false;
     }
@@ -180,7 +177,6 @@ export function useCapacityManagement() {
         CacheService.setCache(
           CacheService.KEYS.CAPACITY, 
           data, 
-          tenantId,
           30 * 60 * 1000 // 30 minutos
         );
         
@@ -201,7 +197,7 @@ export function useCapacityManagement() {
 
   // Adicionar data especial
   const addSpecialDate = async (date: string, limit: number, description?: string) => {
-    if (!isAuthenticated || !tenantId) {
+    if (!isAuthenticated) {
       toast.error('Usuário não autenticado');
       return false;
     }
@@ -220,7 +216,7 @@ export function useCapacityManagement() {
 
       if (result.success) {
         // Invalidar cache e recarregar
-        CacheService.removeCache(CacheService.KEYS.CAPACITY, tenantId);
+        CacheService.removeCache(CacheService.KEYS.CAPACITY);
         await loadConfiguration();
         return true;
       } else {
@@ -236,7 +232,7 @@ export function useCapacityManagement() {
 
   // Remover data especial
   const removeSpecialDate = async (date: string) => {
-    if (!isAuthenticated || !tenantId) {
+    if (!isAuthenticated) {
       toast.error('Usuário não autenticado');
       return false;
     }
@@ -252,7 +248,7 @@ export function useCapacityManagement() {
       if (result.success) {
         // Atualizar estado local e invalidar cache
         setSpecialDates(prev => prev.filter(sd => sd.date !== date));
-        CacheService.removeCache(CacheService.KEYS.CAPACITY, tenantId);
+        CacheService.removeCache(CacheService.KEYS.CAPACITY);
         toast.success('Data especial removida');
         return true;
       } else {
@@ -268,7 +264,7 @@ export function useCapacityManagement() {
 
   // Verificar capacidade para uma data
   const checkCapacityForDate = async (date: string) => {
-    if (!isAuthenticated || !tenantId) {
+    if (!isAuthenticated) {
       toast.error('Usuário não autenticado');
       return null;
     }
@@ -301,9 +297,7 @@ export function useCapacityManagement() {
     );
     
     // Invalidar cache para forçar sincronização
-    if (tenantId) {
-      CacheService.removeCache(CacheService.KEYS.CAPACITY, tenantId);
-    }
+    CacheService.removeCache(CacheService.KEYS.CAPACITY);
   };
 
   const toggleWeekdayEnabled = (dayId: number) => {
@@ -314,9 +308,7 @@ export function useCapacityManagement() {
     );
     
     // Invalidar cache para forçar sincronização
-    if (tenantId) {
-      CacheService.removeCache(CacheService.KEYS.CAPACITY, tenantId);
-    }
+    CacheService.removeCache(CacheService.KEYS.CAPACITY);
   };
 
   // Funções para gerenciar datas especiais localmente
@@ -328,9 +320,7 @@ export function useCapacityManagement() {
     );
     
     // Invalidar cache para forçar sincronização
-    if (tenantId) {
-      CacheService.removeCache(CacheService.KEYS.CAPACITY, tenantId);
-    }
+    CacheService.removeCache(CacheService.KEYS.CAPACITY);
   };
 
   // Carregar configurações quando usuário mudar ou componente montar
@@ -346,10 +336,10 @@ export function useCapacityManagement() {
 
   // Limpar cache quando usuário fizer logout
   useEffect(() => {
-    if (!user && tenantId) {
-      CacheService.clearTenantCache(tenantId);
+    if (!user) {
+      CacheService.clearAllCache();
     }
-  }, [user, tenantId]);
+  }, [user]);
 
   return {
     // Estados
@@ -358,7 +348,6 @@ export function useCapacityManagement() {
     loading,
     saving,
     isAuthenticated,
-    tenantId,
     user,
 
     // Funções de carregamento/salvamento

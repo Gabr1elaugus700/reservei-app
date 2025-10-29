@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -11,12 +10,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import { signIn } from "@/lib/auth-client";
 import { signInAction } from "@/app/actions/auth";
+import { useActionState } from "react";
 
 export default function SignIn() {
+  const [state, formAction, isPending] = useActionState(signInAction, null);
 
   return (
     <div className="flex flex-col items-center justify-center h-screen">
@@ -29,10 +27,11 @@ export default function SignIn() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            <form action={signInAction}>
+            <form action={formAction}>
               <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
+                  id="email"
                   name="email"
                   type="email"
                   placeholder="m@example.com"
@@ -46,15 +45,23 @@ export default function SignIn() {
                 </div>
 
                 <Input
+                  id="password"
                   name="password"
                   type="password"
                   placeholder="password"
-                  autoComplete="password"
+                  autoComplete="current-password"
+                  required
                 />
               </div>
 
-              <Button type="submit" className="w-full" >
-                Login 
+              {state?.error && (
+                <p className="text-sm text-red-500 mt-2" role="alert" aria-live="polite">
+                  {state.error}
+                </p>
+              )}
+
+              <Button type="submit" className="w-full mt-4" disabled={isPending}>
+                {isPending ? "Entrando..." : "Login"}
               </Button>
             </form>
           </div>
