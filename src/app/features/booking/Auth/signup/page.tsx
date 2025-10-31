@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signUpAction } from "@/app/actions/auth";
+import { signUpAction } from "@/app/features/booking/auth/auth";
 export default function SignUpPage() {
   
 
