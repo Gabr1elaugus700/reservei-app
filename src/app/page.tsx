@@ -1,9 +1,7 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Settings, List, Users, Clock, TrendingUp, BarChart3 } from "lucide-react";
-import { signOutAction } from "./features/booking/auth/auth";
 import { useRouter } from "next/navigation";
 import { NavBar } from "@/components/ui/navBar";
 
