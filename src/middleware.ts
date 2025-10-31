@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { auth } from '@/lib/auth'
 
 // Rotas públicas que não precisam de autenticação
 const publicRoutes = [
@@ -23,25 +22,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Verificar sessão
-  try {
-    const session = await auth.api.getSession({
-      headers: request.headers
-    })
-
-    // Se não há sessão e está tentando acessar rota protegida, redirecionar para auth
-    if (!session) {
-      const authUrl = new URL('/features/booking/auth', request.url)
-      authUrl.searchParams.set('callbackUrl', pathname)
-      return NextResponse.redirect(authUrl)
-    }
-
-    return NextResponse.next()
-  } catch {
-    // Em caso de erro na verificação, redirecionar para auth
+  // Verificar se existe cookie de sessão do better-auth
+  // Better-auth usa cookies para manter a sessão
+  const sessionToken = request.cookies.get('better-auth.session_token')
+  
+  // Se não há cookie de sessão, redirecionar para auth
+  if (!sessionToken) {
     const authUrl = new URL('/features/booking/auth', request.url)
+    authUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(authUrl)
   }
+
+  return NextResponse.next()
 }
 
 // Configurar quais rotas o middleware deve processar
