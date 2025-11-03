@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { capacityService } from '@/app/lib/capacity-service';
-import { getCurrentUser } from '@/app/lib/auth-service';
+import { capacityService } from '@/lib/capacity-service';
+import { getCurrentUser } from '@/lib/auth-service';
 
 // POST /api/capacity/special-dates - Adicionar uma nova data especial
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Não autorizado' },

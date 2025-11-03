@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { capacityService } from '@/app/lib/capacity-service';
-import { getCurrentUser } from '@/app/lib/auth-service';
+import { capacityService } from '@/lib/capacity-service';
+import { getCurrentUser } from '@/lib/auth-service';
 
 // GET /api/capacity/check/[date] - Verificar capacidade para uma data específica
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ date: string }> }
 ) {
   try {
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Não autorizado' },

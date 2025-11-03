@@ -18,10 +18,10 @@ export default async function Home() {
       <p className="text-muted-foreground mb-4">Sistema de Agendamentos</p>
       <div className="flex gap-4 mt-8">
         <Button size="lg" variant="outline" className="hover:border-gray-900 border-2 transition-opacity hover:cursor-pointer">
-          <Link href="/features/booking/auth/signup">Registre-se</Link>
+          <Link href="/auth/signup">Registre-se</Link>
         </Button>
         <Button size="lg" className="hover:opacity-80 transition-opacity hover:cursor-pointer">
-          <Link href="/features/booking/auth/signin">Login</Link>
+          <Link href="/auth/signin">Login</Link>
         </Button>
       </div>
     </div>

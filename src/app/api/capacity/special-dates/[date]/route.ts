@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { capacityService } from '@/app/lib/capacity-service';
-import { getCurrentUser } from '@/app/lib/auth-service';
+import { capacityService } from '@/lib/capacity-service';
+import { getCurrentUser } from '@/lib/auth-service';
 
 // PUT /api/capacity/special-dates/[date] - Atualizar uma data especial
 export async function PUT(
@@ -8,7 +8,7 @@ export async function PUT(
   { params }: { params: Promise<{ date: string }> }
 ) {
   try {
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Não autorizado' },
@@ -43,7 +43,7 @@ export async function PUT(
       );
     }
 
-    await capacityService.updateSpecialDate(user.tenantId, date, {
+    await capacityService.updateSpecialDate(date, {
       limit,
       description
     });
@@ -70,7 +70,7 @@ export async function DELETE(
   { params }: { params: Promise<{ date: string }> }
 ) {
   try {
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Não autorizado' },
@@ -92,7 +92,7 @@ export async function DELETE(
       );
     }
 
-    await capacityService.removeSpecialDate(user.tenantId, date);
+    await capacityService.removeSpecialDate(date);
 
     return NextResponse.json({
       success: true,

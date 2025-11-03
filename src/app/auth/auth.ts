@@ -54,5 +54,5 @@ export async function signOutAction() {
     headers: await headers(),
   });
 
-  redirect("/features/booking/auth");
+  redirect("/auth/");
 }

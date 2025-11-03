@@ -1,27 +1,23 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
-  Menu,
-  Bell,
   Plus,
   Trash2,
-  Save,
   Calendar,
   Settings,
   Loader2,
-  LogOut,
-  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useCapacityManagement } from "@/app/hooks/use-capacity-management";
-import { useAuth } from "@/app/hooks/use-auth";
-import { formatDate } from "@/app/lib/format-date";
+import { useCapacityManagement } from "@/hooks/use-capacity-management";
+import { useSession } from "@/lib/auth-client";
+import { formatDate } from "@/lib/format-date";
 
-export default function CapacityManagement() {
-  const { user, logout } = useAuth();
+export default function CapacityPage() {
+  const { data: session, isPending } = useSession();
+  const isAuthenticated = !!session?.user;
   const {
     weeklyLimits,
     specialDates,
@@ -33,8 +29,7 @@ export default function CapacityManagement() {
     addSpecialDate,
     removeSpecialDate,
     updateSpecialDateLocal,
-    isAuthenticated,
-  } = useCapacityManagement();
+  } = useCapacityManagement(isAuthenticated);
 
   // Estados para formulário de nova data especial
   const [newSpecialDate, setNewSpecialDate] = useState({
@@ -42,14 +37,6 @@ export default function CapacityManagement() {
     limit: "",
     description: "",
   });
-
-  // Redirecionar se não autenticado
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      window.location.href = '/features/booking/Auth';
-    }
-  }, [loading, isAuthenticated]);
-
   // Função para adicionar data especial
   const handleAddSpecialDate = async () => {
     if (!newSpecialDate.date || !newSpecialDate.limit) {
@@ -77,77 +64,28 @@ export default function CapacityManagement() {
     await saveConfiguration();
   };
 
-  // Função para logout
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = '/features/booking/Auth';
-  };
 
-  // Mostrar loading enquanto carrega autenticação ou tema
-  if (loading || !isAuthenticated) {
+  // Mostrar loading enquanto carrega
+  if (loading || isPending) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
           <span className="text-lg text-gray-600">
-            {!isAuthenticated ? 'Verificando autenticação...' : 'Carregando configurações...'}
+            Verificando autenticação...
           </span>
         </div>
       </div>
     );
   }
 
+  // Se não está autenticado após o loading, não renderiza nada (vai redirecionar)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                <Menu className="h-5 w-5" />
-              </Button>
-              <h1 className="text-xl font-semibold text-gray-900">
-                Gerenciamento de Capacidade
-              </h1>
-              
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <User className="h-4 w-4" />
-                <span>{user?.name || user?.email}</span>
-              </div>
-              <Button variant="ghost" size="sm">
-                <Bell className="h-5 w-5" />
-              </Button>
-              <Button
-                onClick={handleSaveConfiguration}
-                disabled={saving}
-                className="bg-blue-600 hover:bg-blue-700"
-                style={{
-                  backgroundColor: `var(--primary)`,
-                  color: `var(--primary-foreground)`,
-                }}
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                {saving ? "Salvando..." : "Salvar Configurações"}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -381,12 +319,14 @@ export default function CapacityManagement() {
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-yellow-600">
-                {Math.round(
-                  weeklyLimits.reduce(
+                {(() => {
+                  const enabled = weeklyLimits.filter((d) => d.enabled);
+                  const total = weeklyLimits.reduce(
                     (sum, day) => sum + (day.enabled ? day.limit : 0),
                     0
-                  ) / weeklyLimits.filter((d) => d.enabled).length
-                )}
+                  );
+                  return enabled.length ? Math.round(total / enabled.length) : 0;
+                })()}
               </div>
               <div className="text-sm text-yellow-800">
                 Limite médio semanal

@@ -1,9 +1,13 @@
+"use client";
 import { Calendar, List, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/app/features/booking/auth/auth";
+import { signOutAction } from "@/app/auth/auth"
 import { redirect } from "next/navigation";
+import { useSession } from "@/lib/auth-client";
 
 export function NavBar() {
+    const { data: session } = useSession();
+
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -14,10 +18,10 @@ export function NavBar() {
             </div>
             <div>
               <h1 className="text-lg font-bold text-foreground">
-                Sistema de Agendamentos
+                Sistema de Agendamentos 
               </h1>
               <p className="text-xs text-muted-foreground">
-                Painel Administrativo
+                Painel Administrativo {session?.user?.name ? `- ${session.user.name}` : ""}
               </p>
             </div>
           </div>

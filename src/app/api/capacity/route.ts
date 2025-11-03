@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { capacityService } from '@/app/lib/capacity-service';
-import { getCurrentUser } from '@/app/lib/auth-service';
+import { capacityService } from '@/lib/capacity-service';
+import { getCurrentUser } from '@/lib/auth-service';
 
 // GET /api/capacity - Buscar configurações de capacidade
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Não autorizado' },
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 // POST /api/capacity - Salvar configurações completas de capacidade
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { success: false, error: 'Não autorizado' },
