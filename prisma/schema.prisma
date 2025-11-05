@@ -149,17 +149,17 @@ model Booking {
   customerId String
   customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
   date       DateTime      @db.Date
-  time       String        // e.g., "14:00"
+  time       String // e.g., "14:00"
   status     BookingStatus @default(PENDING)
   notes      String?
   adults     Int
   children   Int
+  totalPrice Decimal?      @db.Decimal(10, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([date])
-  
 }
 
 enum BookingStatus {
@@ -167,4 +167,34 @@ enum BookingStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
+}
+
+// Table to Config general settings
+model ScheduleConfig {
+  id           String   @id @default(cuid())
+  dayOfWeek    Int // 0-6 (Sunday to Saturday)
+  isOpen       Boolean  @default(true)
+  startTime    String // "09:00"
+  endTime      String // "18:00"
+  slotInterval Int      @default(30) // minutes
+  maxCapacity  Int      @default(20) // capacity per slot
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([dayOfWeek])
+}
+
+model SpecialDateSchedule {
+  id           String   @id @default(cuid())
+  date         DateTime @db.Date
+  isOpen       Boolean  @default(true)
+  startTime    String? // If null and isOpen=true, use default config
+  endTime      String?
+  slotInterval Int?
+  maxCapacity  Int?
+  reason       String? // "Holiday", "Special event", etc.
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([date])
 }

@@ -1,30 +1,53 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {  Loader2, Plus } from "lucide-react";
+import { CircleMinus, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import { BookingCalendar } from "@/components/BookingCalendar";
 import { Input } from "@/components/ui/input";
+import TimeSlot from "@/components/TimeSlot";
 
-interface Visitor {
+interface Visitors {
+  childrens: number;
+  adults: number;
+  responsible: Responsible;
+}
+
+interface Responsible {
   id: string;
   name: string;
-  age: string;
+  whatsapp: string;
 }
 
 const Index = () => {
+  // Date
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>("");
+
+  // Customer
   const [responsibleName, setResponsibleName] = useState("");
   const [isLoadingCustomer, setIsLoadingCustomer] = useState(false);
   const [showNameField, setShowNameField] = useState(false);
   const [isCustomerFound, setIsCustomerFound] = useState(false);
   const [customerId, setCustomerId] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [visitors, setVisitors] = useState<Visitor[]>([
-    { id: "1", name: "", age: "" },
-  ]);
+  const [visitors, setVisitors] = useState<Visitors[]>([]);
+
+  // Visitors count
+  const [adultsCount, setAdultsCount] = useState(1);
+  const [childrensCount, setChildrensCount] = useState(0);
+
+  // Function to add or remove visitors
+  const sumAdults = () => setAdultsCount(adultsCount + 1);
+  const subtractAdults = () => {
+    if (adultsCount > 0) setAdultsCount(adultsCount - 1);
+  };
+
+  const sumChildrens = () => setChildrensCount(childrensCount + 1);
+  const subtractChildrens = () => {
+    if (childrensCount > 0) setChildrensCount(childrensCount - 1);
+  };
 
   const handleWhatsappChange = (value: string) => {
     setWhatsappNumber(value);
@@ -32,12 +55,12 @@ const Index = () => {
     setResponsibleName("");
     setIsCustomerFound(false);
     setCustomerId("");
-  }
+  };
 
   const handleWhatsappBlur = async () => {
     // Validar Whatsapp (mínimo 10 dígitos)
-    const numbersOnly = whatsappNumber.replace(/\D/g, '');
-    
+    const numbersOnly = whatsappNumber.replace(/\D/g, "");
+
     if (numbersOnly.length < 10) {
       toast.error("Número de WhatsApp inválido");
       return;
@@ -47,7 +70,7 @@ const Index = () => {
 
     try {
       const response = await fetch(`/api/customer/${whatsappNumber}`);
-      console.log('Response:', response);
+      console.log("Response:", response);
       const result = await response.json();
 
       if (result.found) {
@@ -60,11 +83,35 @@ const Index = () => {
         setIsCustomerFound(false);
       }
     } catch (error) {
-      toast.error("Erro ao buscar cliente" + (error instanceof Error ? `: ${error.message}` : ""));
+      toast.error(
+        "Erro ao buscar cliente" +
+          (error instanceof Error ? `: ${error.message}` : "")
+      );
     } finally {
       setIsLoadingCustomer(false);
     }
   };
+
+  // Populate visitors data whenever counts or responsible info changes
+  useEffect(() => {
+    const visitorsData: Visitors = {
+      adults: adultsCount,
+      childrens: childrensCount,
+      responsible: {
+        id: customerId,
+        name: responsibleName,
+        whatsapp: whatsappNumber,
+      },
+    };
+
+    // Se não houver dados do responsável, limpar lista (opcional)
+    if (!responsibleName && !whatsappNumber && !customerId) {
+      setVisitors([]);
+      return;
+    }
+
+    setVisitors([visitorsData]);
+  }, [adultsCount, childrensCount, responsibleName, whatsappNumber, customerId]);
 
   // Gerar horários disponíveis (09:00 às 18:00, intervalos de 30min) -- Alterar para montar via backend return
   const generateTimeSlots = () => {
@@ -72,7 +119,9 @@ const Index = () => {
     for (let hour = 9; hour <= 18; hour++) {
       for (let minute = 0; minute < 60; minute += 30) {
         if (hour === 18 && minute > 0) break; // Parar às 18:00
-        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const time = `${hour.toString().padStart(2, "0")}:${minute
+          .toString()
+          .padStart(2, "0")}`;
         slots.push(time);
       }
     }
@@ -94,27 +143,13 @@ const Index = () => {
     return {
       occupied: occupiedSlots[time] || 0,
       max: 20,
-      isFull: occupiedSlots[time] >= 20
+      isFull: occupiedSlots[time] >= 20,
     };
   };
 
-  const addVisitor = () => {
-    setVisitors([...visitors, { id: Date.now().toString(), name: "", age: "" }]);
-  };
-
-  const updateVisitor = (id: string, field: "name" | "age", value: string) => {
-    setVisitors(visitors.map(v => v.id === id ? { ...v, [field]: value } : v));
-  };
-
   const handleBooking = () => {
-    if (!selectedDate || !selectedTime || !responsibleName || !whatsappNumber) {
+    if (!selectedDate || !selectedTime || !visitors) {
       toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-
-    const filledVisitors = visitors.filter(v => v.name && v.age);
-    if (filledVisitors.length === 0) {
-      toast.error("Adicione pelo menos um visitante");
       return;
     }
 
@@ -123,8 +158,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen  from-background to-muted">
-      
-
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-8">
         {/* Hero Image Card */}
         <div className="relative rounded-3xl overflow-hidden shadow-2xl transform hover:scale-[1.02] transition-transform duration-300">
@@ -137,14 +170,20 @@ const Index = () => {
           />
           <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 text-white">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">Recanto Da Uva Fina</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
+              Recanto Da Uva Fina
+            </h2>
             <div className="flex justify-between items-end">
               <div>
-                <span className="text-sm opacity-90 block mb-1">Valor por Adulto:</span>
+                <span className="text-sm opacity-90 block mb-1">
+                  Valor por Adulto:
+                </span>
                 <span className="text-3xl sm:text-4xl font-bold">R$ 10,00</span>
               </div>
               <div>
-                <span className="text-sm opacity-90 block mb-1">Valor por Criança (Até 10 anos):</span>
+                <span className="text-sm opacity-90 block mb-1">
+                  Valor por Criança (Até 10 anos):
+                </span>
                 <span className="text-3xl sm:text-4xl font-bold">R$ 5,00</span>
               </div>
             </div>
@@ -165,68 +204,13 @@ const Index = () => {
 
         {/* Time Selection */}
         {selectedDate && (
-          <div className="bg-card rounded-2xl shadow-lg p-6 sm:p-8 border border-border animate-in fade-in-50 slide-in-from-top-5 duration-300">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-10 w-1 bg-primary rounded-full" />
-              <h3 className="text-xl font-bold">Selecione o Horário</h3>
-            </div>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-              {timeSlots.map((time) => {
-                const capacity = getTimeSlotCapacity(time);
-                const isSelected = selectedTime === time;
-                const isFull = capacity.isFull;
-
-                return (
-                  <button
-                    key={time}
-                    onClick={() => !isFull && setSelectedTime(time)}
-                    disabled={isFull}
-                    className={`
-                      relative p-3 rounded-xl border-2 transition-all duration-200
-                      ${isSelected 
-                        ? 'bg-primary border-primary text-primary-foreground shadow-lg scale-105' 
-                        : isFull
-                        ? 'bg-muted/50 border-muted text-muted-foreground cursor-not-allowed opacity-50'
-                        : 'bg-background border-border hover:border-primary hover:bg-primary/5 hover:scale-105'
-                      }
-                    `}
-                  >
-                    <div className="font-semibold text-sm">{time}</div>
-                    {!isFull && (
-                      <div className="text-xs mt-1 opacity-75">
-                        {capacity.occupied}/{capacity.max}
-                      </div>
-                    )}
-                    {isFull && (
-                      <div className="text-xs mt-1 font-medium">
-                        Lotado
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-4 p-3 bg-muted/50 rounded-lg text-sm text-muted-foreground flex items-center gap-2">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-primary" />
-                  <span>Selecionado</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-background border-2 border-border" />
-                  <span>Disponível</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-muted" />
-                  <span>Lotado</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <>
+            {TimeSlot(timeSlots, getTimeSlotCapacity, selectedTime, setSelectedTime)}
+          </>
         )}
 
         {/* Responsible Person */}
-        <div className="bg-card rounded-2xl shadow-lg p-6 sm:p-8 border border-border">
+        <div className="bg-card rounded-2xl shadow-lg p-6 sm:p-8 border border-border"> 
           <div className="flex items-center gap-3 mb-6">
             <div className="h-10 w-1 bg-primary rounded-full" />
             <h3 className="text-xl font-bold">Responsável pelo Passeio</h3>
@@ -257,9 +241,11 @@ const Index = () => {
             {showNameField && !isLoadingCustomer && (
               <div className="animate-in fade-in-50 slide-in-from-top-5 duration-300">
                 <label className="block text-sm font-medium mb-2 text-muted-foreground">
-                  Nome Completo
+                  Nome do Responsável
                   {isCustomerFound && (
-                    <span className="ml-2 text-xs text-primary">(Cliente cadastrado)</span>
+                    <span className="ml-2 text-xs text-primary">
+                      (Cliente cadastrado)
+                    </span>
                   )}
                 </label>
                 <Input
@@ -268,7 +254,7 @@ const Index = () => {
                   onChange={(e) => setResponsibleName(e.target.value)}
                   disabled={isCustomerFound}
                   className={`h-12 bg-background border-border focus:border-primary transition-colors ${
-                    isCustomerFound ? 'opacity-75 cursor-not-allowed' : ''
+                    isCustomerFound ? "opacity-75 cursor-not-allowed" : ""
                   }`}
                 />
               </div>
@@ -283,51 +269,47 @@ const Index = () => {
             <h3 className="text-xl font-bold">Visitantes</h3>
           </div>
           <div className="space-y-4">
-            {visitors.map((visitor, index) => (
-              <div key={visitor.id} className="space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                    {index + 1}
-                  </div>
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Visitante {index + 1}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5 text-muted-foreground">
-                      Nome
-                    </label>
-                    <Input
-                      placeholder="Nome do visitante"
-                      value={visitor.name}
-                      onChange={(e) => updateVisitor(visitor.id, "name", e.target.value)}
-                      className="h-11 bg-background border-border focus:border-primary transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5 text-muted-foreground">
-                      Idade
-                    </label>
-                    <Input
-                      placeholder="0"
-                      type="number"
-                      value={visitor.age}
-                      onChange={(e) => updateVisitor(visitor.id, "age", e.target.value)}
-                      className="h-11 bg-background border-border focus:border-primary transition-colors"
-                    />
-                  </div>
-                </div>
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Adultos</span>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={subtractAdults}
+                  variant="outline"
+                  className="h-10 w-10 p-0 grid place-items-center"
+                >
+                  <CircleMinus />
+                </Button>
+                <span className="w-12 text-center font-medium">{adultsCount}</span>
+                <Button
+                  onClick={sumAdults}
+                  variant="outline"
+                  className="h-10 w-10 p-0 grid place-items-center"
+                >
+                  <Plus />
+                </Button>
               </div>
-            ))}
-            <Button
-              variant="secondary"
-              className="w-full h-12 mt-2 font-semibold hover:bg-secondary/80"
-              onClick={addVisitor}
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Adicionar Visitante
-            </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Crianças</span>
+              <div className="flex items-center gap-3">
+                <Button
+                  onClick={subtractChildrens}
+                  variant="outline"
+                  className="h-10 w-10 p-0 grid place-items-center"
+                >
+                  <CircleMinus />
+                </Button>
+                <span className="w-12 text-center font-medium">{childrensCount}</span>
+                <Button
+                  onClick={sumChildrens}
+                  variant="outline"
+                  className="h-10 w-10 p-0 grid place-items-center"
+                >
+                  <Plus />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
 

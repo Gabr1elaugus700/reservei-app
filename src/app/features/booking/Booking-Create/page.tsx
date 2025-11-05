@@ -3,7 +3,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Settings, List, Users, Clock, TrendingUp, BarChart3 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { NavBar } from "@/components/ui/navBar";
 
 const Index = () => {
   const router = useRouter();
