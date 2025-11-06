@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/auth-service';
 // GET /api/capacity/check/[date] - Verificar capacidade para uma data específica
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ date: string }> }
+  { params }: { params: { date: string }}
 ) {
   try {
     const user = await getCurrentUser();
@@ -18,7 +18,6 @@ export async function GET(
 
     const { date } = await params;
 
-    // Verificar se a data é válida
     const dateObj = new Date(date);
     if (isNaN(dateObj.getTime())) {
       return NextResponse.json(
