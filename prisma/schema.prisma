@@ -172,7 +172,7 @@ enum BookingStatus {
 // Table to Config general settings
 model ScheduleConfig {
   id           String   @id @default(cuid())
-  dayOfWeek    Int // 0-6 (Sunday to Saturday)
+  dayOfWeek    Int // 0-7 (Sunday to Monday)
   isOpen       Boolean  @default(true)
   startTime    String // "09:00"
   endTime      String // "18:00"
