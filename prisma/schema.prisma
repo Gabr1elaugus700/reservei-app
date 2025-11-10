@@ -171,30 +171,37 @@ enum BookingStatus {
 
 // Table to Config general settings
 model ScheduleConfig {
-  id           String   @id @default(cuid())
-  dayOfWeek    Int // 0-7 (Sunday to Monday)
-  isOpen       Boolean  @default(true)
-  startTime    String // "09:00"
-  endTime      String // "18:00"
-  slotInterval Int      @default(30) // minutes
-  maxCapacity  Int      @default(20) // capacity per slot
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@unique([dayOfWeek])
+  id        String @id @default(cuid())
+  dayOfWeek Int // 0=Domingo ... 6=Sábado
+  startTime String // "09:00"
+  endTime   String // "18:00"
+  interval  Int // minutos entre slots
+  slots     Slot[] // Relacionamento com slots padrão do dia
 }
 
 model SpecialDateSchedule {
-  id           String   @id @default(cuid())
-  date         DateTime @db.Date
-  isOpen       Boolean  @default(true)
-  startTime    String? // If null and isOpen=true, use default config
-  endTime      String?
-  slotInterval Int?
-  maxCapacity  Int?
-  reason       String? // "Holiday", "Special event", etc.
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String      @id @default(cuid())
+  date      DateTime @unique
+  startTime String
+  endTime   String
+  interval  Int
+  slots     Slot[] // Relacionamento com slots especiais
+}
 
-  @@unique([date])
+model Slot {
+  id                    String                  @id @default(cuid())
+  time                  String // "09:00"
+  available             Boolean // true=livre, false=bloqueado
+  reason                String? // Motivo do bloqueio (ex: "Almoço")
+  scheduleConfigId      String?
+  specialDateScheduleId String?
+  ScheduleConfig        ScheduleConfig?      @relation(fields: [scheduleConfigId], references: [id])
+  SpecialDateSchedule   SpecialDateSchedule? @relation(fields: [specialDateScheduleId], references: [id])
+}
+
+model BlockedTimeSlot {
+  id     Int      @id @default(autoincrement())
+  date   DateTime // Data específica
+  time   String // "12:00"
+  reason String // Ex: "Almoço", "Feriado"
 }

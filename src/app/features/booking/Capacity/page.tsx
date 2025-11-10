@@ -22,14 +22,13 @@ export default function CapacityPage() {
     weeklyLimits,
     specialDates,
     loading,
-    saving,
     saveConfiguration,
     updateWeeklyLimit,
     toggleWeekdayEnabled,
     addSpecialDate,
     removeSpecialDate,
     updateSpecialDateLocal,
-  } = useCapacityManagement(isAuthenticated);
+  } = useCapacityManagement(isAuthenticated);                                                                                        
 
   // Estados para formulário de nova data especial
   const [newSpecialDate, setNewSpecialDate] = useState({

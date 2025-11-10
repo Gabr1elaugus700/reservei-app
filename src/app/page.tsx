@@ -128,7 +128,7 @@ const Index = () => {
     return slots;
   };
 
-  const timeSlots = generateTimeSlots();
+  const timeSlots = generateTimeSlots(); // Array de horários disponíveis
 
   // Simular capacidade por horário (em produção, viria do backend)
   const getTimeSlotCapacity = (time: string) => {
