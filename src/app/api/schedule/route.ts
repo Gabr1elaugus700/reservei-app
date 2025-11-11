@@ -37,9 +37,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-
-
   } catch (error) {
     console.error("Error creating schedule configuration:", error);
     return NextResponse.json(
