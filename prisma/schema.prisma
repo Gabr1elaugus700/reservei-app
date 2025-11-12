@@ -1,207 +1,209 @@
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
 }
 
 model WeeklyCapacity {
-  id        String   @id @default(cuid())
-  // Dias da semana (0 = Domingo, 1 = Segunda, etc.)
-  dayOfWeek Int // 0-6
-  limit     Int
-  enabled   Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+    id        String   @id @default(cuid())
+    // Dias da semana (0 = Domingo, 1 = Segunda, etc.)
+    dayOfWeek Int // 0-6
+    limit     Int
+    enabled   Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
-  @@unique([dayOfWeek])
+    @@unique([dayOfWeek])
 }
 
 model SpecialDateCapacity {
-  id          String   @id @default(cuid())
-  date        DateTime @db.Date
-  limit       Int
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+    id          String   @id @default(cuid())
+    date        DateTime @db.Date
+    limit       Int
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
 
-  @@unique([date])
+    @@unique([date])
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
+    id            String    @id @default(cuid())
+    name          String
+    email         String    @unique
+    emailVerified Boolean   @default(false)
+    image         String?
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+    sessions      Session[]
+    accounts      Account[]
 
-  members     Member[]
-  invitations Invitation[]
+    members     Member[]
+    invitations Invitation[]
 
-  @@map("user")
+    @@map("user")
 }
 
 model Session {
-  id        String   @id @default(cuid())
-  expiresAt DateTime
-  token     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  ipAddress String?
-  userAgent String?
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    id        String   @id @default(cuid())
+    expiresAt DateTime
+    token     String   @unique
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    ipAddress String?
+    userAgent String?
+    userId    String
+    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  activeOrganizationId String?
+    activeOrganizationId String?
 
-  @@map("session")
+    @@map("session")
 }
 
 model Account {
-  id                    String    @id @default(cuid())
-  accountId             String
-  providerId            String
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+    id                    String    @id @default(cuid())
+    accountId             String
+    providerId            String
+    userId                String
+    user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    accessToken           String?
+    refreshToken          String?
+    idToken               String?
+    accessTokenExpiresAt  DateTime?
+    refreshTokenExpiresAt DateTime?
+    scope                 String?
+    password              String?
+    createdAt             DateTime  @default(now())
+    updatedAt             DateTime  @updatedAt
 
-  @@map("account")
+    @@map("account")
 }
 
 model Verification {
-  id         String   @id @default(cuid())
-  identifier String
-  value      String
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+    id         String   @id @default(cuid())
+    identifier String
+    value      String
+    expiresAt  DateTime
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
 
-  @@map("verification")
+    @@map("verification")
 }
 
 model Organization {
-  id          String       @id
-  name        String
-  slug        String
-  logo        String?
-  createdAt   DateTime
-  metadata    String?
-  members     Member[]
-  invitations Invitation[]
+    id          String       @id
+    name        String
+    slug        String
+    logo        String?
+    createdAt   DateTime
+    metadata    String?
+    members     Member[]
+    invitations Invitation[]
 
-  @@unique([slug])
-  @@map("organization")
+    @@unique([slug])
+    @@map("organization")
 }
 
 model Member {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role           String
-  createdAt      DateTime
+    id             String       @id
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    userId         String
+    user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+    role           String
+    createdAt      DateTime
 
-  @@map("member")
+    @@map("member")
 }
 
 model Invitation {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  email          String
-  role           String?
-  status         String
-  expiresAt      DateTime
-  inviterId      String
-  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+    id             String       @id
+    organizationId String
+    organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+    email          String
+    role           String?
+    status         String
+    expiresAt      DateTime
+    inviterId      String
+    user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
-  @@map("invitation")
+    @@map("invitation")
 }
 
 model Customer {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?  @unique
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+    id        String   @id @default(cuid())
+    name      String
+    email     String?  @unique
+    phone     String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
 
-  bookings Booking[]
+    bookings Booking[]
 }
 
 model Booking {
-  id         String        @id @default(cuid())
-  customerId String
-  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  date       DateTime      @db.Date
-  time       String // e.g., "14:00"
-  status     BookingStatus @default(PENDING)
-  notes      String?
-  adults     Int
-  children   Int
-  totalPrice Decimal?      @db.Decimal(10, 2)
+    id         String        @id @default(cuid())
+    customerId String
+    customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+    date       DateTime      @db.Date
+    time       String // e.g., "14:00"
+    status     BookingStatus @default(PENDING)
+    notes      String?
+    adults     Int
+    children   Int
+    totalPrice Decimal?      @db.Decimal(10, 2)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+    createdAt  DateTime  @default(now())
+    updatedAt  DateTime  @updatedAt
+    timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id])
+    timeSlotId String?
 
-  @@index([date])
+    @@index([date])
 }
 
 enum BookingStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
+    PENDING
+    CONFIRMED
+    CANCELLED
+    COMPLETED
 }
 
 // Table to Config general settings
-model ScheduleConfig {
-  id        String @id @default(cuid())
-  dayOfWeek Int // 0=Domingo ... 6=Sábado
-  startTime String // "09:00"
-  endTime   String // "18:00"
-  interval  Int // minutos entre slots
-  slots     Slot[] // Relacionamento com slots padrão do dia
+model AvailabilityConfig {
+    id String @id @default(cuid())
+
+    dayOfWeek Int? // 0=Domingo ... 6=Sábado
+    date      DateTime? @db.Date // se definido, substitui dayOfWeek
+
+    startTime           String // "09:00"
+    endTime             String // "18:00"
+    slotDurationMinutes Int     @default(30) // minutos entre slots
+    capacityPerSlot     Int     @default(20) // capacidade por slot
+    isException         Boolean @default(false) // se true, substitui configurações regulares
+    isActive            Boolean @default(true)
+
+    timeSlots TimeSlot[]
+    createdAt DateTime   @default(now())
+    updatedAt DateTime   @updatedAt
 }
 
-model SpecialDateSchedule {
-  id        String      @id @default(cuid())
-  date      DateTime @unique
-  startTime String
-  endTime   String
-  interval  Int
-  slots     Slot[] // Relacionamento com slots especiais
-}
+model TimeSlot {
+    id          String   @id @default(cuid())
+    date        DateTime // dia específico
+    startTime   DateTime
+    endTime     DateTime
+    capacity    Int      @default(1)
+    bookedCount Int      @default(0)
 
-model Slot {
-  id                    String                  @id @default(cuid())
-  time                  String // "09:00"
-  available             Boolean // true=livre, false=bloqueado
-  reason                String? // Motivo do bloqueio (ex: "Almoço")
-  scheduleConfigId      String?
-  specialDateScheduleId String?
-  ScheduleConfig        ScheduleConfig?      @relation(fields: [scheduleConfigId], references: [id])
-  SpecialDateSchedule   SpecialDateSchedule? @relation(fields: [specialDateScheduleId], references: [id])
-}
+    availabilityConfigId String?
+    availabilityConfig   AvailabilityConfig? @relation(fields: [availabilityConfigId], references: [id])
+    bookings             Booking[]
 
-model BlockedTimeSlot {
-  id     Int      @id @default(autoincrement())
-  date   DateTime // Data específica
-  time   String // "12:00"
-  reason String // Ex: "Almoço", "Feriado"
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([date, startTime])
 }
