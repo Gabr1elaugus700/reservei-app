@@ -207,3 +207,8 @@ model TimeSlot {
 
     @@index([date, startTime])
 }
+
+model LastConfigSync {
+    id        String   @id @default(cuid())
+    syncedAt  DateTime @default(now())
+}
