@@ -22,7 +22,7 @@ export async function signUpAction(formData: FormData) {
     );
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function signInAction(
@@ -46,7 +46,7 @@ export async function signInAction(
     };
   }
 
-  redirect("/");
+  redirect("/dashboard");
 }
 
 export async function signOutAction() {

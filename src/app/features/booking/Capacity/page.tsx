@@ -1,67 +1,35 @@
 "use client";
-import { useState } from "react";
 import {
   Plus,
   Trash2,
-  Calendar,
   Settings,
   Loader2,
+  Coffee,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useCapacityManagement } from "@/hooks/use-capacity-management";
+import { useAvailabilitySchedule } from "@/hooks/use-capacity-management";
 import { useSession } from "@/lib/auth-client";
-import { formatDate } from "@/lib/format-date";
 
 export default function CapacityPage() {
   const { data: session, isPending } = useSession();
   const isAuthenticated = !!session?.user;
+  
   const {
-    weeklyLimits,
-    specialDates,
+    weekConfig,
     loading,
-    saveConfiguration,
-    updateWeeklyLimit,
-    toggleWeekdayEnabled,
-    addSpecialDate,
-    removeSpecialDate,
-    updateSpecialDateLocal,
-  } = useCapacityManagement(isAuthenticated);                                                                                        
-
-  // Estados para formulário de nova data especial
-  const [newSpecialDate, setNewSpecialDate] = useState({
-    date: "",
-    limit: "",
-    description: "",
-  });
-  // Função para adicionar data especial
-  const handleAddSpecialDate = async () => {
-    if (!newSpecialDate.date || !newSpecialDate.limit) {
-      return;
-    }
-
-    const limit = parseInt(newSpecialDate.limit);
-    if (isNaN(limit) || limit < 0) {
-      return;
-    }
-
-    const success = await addSpecialDate(
-      newSpecialDate.date,
-      limit,
-      newSpecialDate.description
-    );
-
-    if (success) {
-      setNewSpecialDate({ date: "", limit: "", description: "" });
-    }
-  };
-
-  // Função para salvar configurações
-  const handleSaveConfiguration = async () => {
-    await saveConfiguration();
-  };
+    saving,
+    daysAhead,
+    setDaysAhead,
+    saveWeeklySchedule,
+    toggleDay,
+    updateDayField,
+    addBreakPeriod,
+    removeBreakPeriod,
+    updateBreakPeriod,
+  } = useAvailabilitySchedule();
 
 
   // Mostrar loading enquanto carrega
@@ -71,47 +39,110 @@ export default function CapacityPage() {
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
           <span className="text-lg text-gray-600">
-            Verificando autenticação...
+            Carregando configurações...
           </span>
         </div>
       </div>
     );
   }
 
-  // Se não está autenticado após o loading, não renderiza nada (vai redirecionar)
+  // Se não está autenticado após o loading, não renderiza nada
   if (!isAuthenticated) {
     return null;
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Limites Padrão por Dia da Semana */}
-          <Card className="p-6">
-            <div className="flex items-center mb-6">
+        
+        {/* Resumo */}
+        <Card className="mb-8 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Resumo das Configurações
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {weekConfig.filter((day) => day.enabled).length}
+              </div>
+              <div className="text-sm text-blue-800">Dias da semana ativos</div>
+            </div>
+            <div className="bg-green-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
+                {(() => {
+                  const enabled = weekConfig.filter((d) => d.enabled);
+                  if (enabled.length === 0) return 0;
+                  const totalSlots = enabled.reduce((sum, day) => {
+                    const duration = 
+                      (parseInt(day.endTime.split(':')[0]) * 60 + parseInt(day.endTime.split(':')[1])) -
+                      (parseInt(day.startTime.split(':')[0]) * 60 + parseInt(day.startTime.split(':')[1]));
+                    return sum + Math.floor(duration / day.slotDurationMinutes);
+                  }, 0);
+                  return Math.round(totalSlots / enabled.length);
+                })()}
+              </div>
+              <div className="text-sm text-green-800">Slots médios por dia</div>
+            </div>
+            <div className="bg-purple-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">
+                {(() => {
+                  const enabled = weekConfig.filter((d) => d.enabled);
+                  if (enabled.length === 0) return 0;
+                  const avg = enabled.reduce((sum, d) => sum + d.capacityPerSlot, 0) / enabled.length;
+                  return Math.round(avg);
+                })()}
+              </div>
+              <div className="text-sm text-purple-800">Capacidade média/slot</div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Configuração dos Dias */}
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
               <Settings className="h-5 w-5 mr-2 text-blue-600" />
               <h2 className="text-lg font-semibold text-gray-900">
-                Limites Padrão por Dia da Semana
+                Configuração de Horários Semanais
               </h2>
             </div>
+            <Button 
+              onClick={saveWeeklySchedule} 
+              disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Configuração'
+              )}
+            </Button>
+          </div>
 
-            <div className="space-y-4">
-              {weeklyLimits.map((day) => (
-                <div
-                  key={day.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                >
+          <div className="space-y-6">
+            {weekConfig.map((day) => (
+              <div
+                key={day.dayOfWeek}
+                className={`p-6 rounded-lg border-2 transition-all ${
+                  day.enabled
+                    ? 'bg-white border-blue-200'
+                    : 'bg-gray-50 border-gray-200'
+                }`}
+              >
+                {/* Header do Dia */}
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
                       checked={day.enabled}
-                      onChange={() => toggleWeekdayEnabled(day.id)}
-                      className="h-4 w-4 text-blue-600 rounded border-gray-300"
+                      onChange={() => toggleDay(day.dayOfWeek)}
+                      className="h-5 w-5 text-blue-600 rounded border-gray-300"
                     />
                     <div>
-                      <div className="font-medium text-gray-900">
+                      <div className="font-semibold text-gray-900 text-lg">
                         {day.name}
                       </div>
                       <div className="text-sm text-gray-500">
@@ -119,223 +150,232 @@ export default function CapacityPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Label
-                      htmlFor={`limit-${day.id}`}
-                      className="text-sm text-gray-600"
-                    >
-                      Limite:
-                    </Label>
-                    <Input
-                      id={`limit-${day.id}`}
-                      type="number"
-                      min="0"
-                      value={day.limit}
-                      onChange={(e) =>
-                        updateWeeklyLimit(day.id, parseInt(e.target.value) || 0)
-                      }
-                      className="w-20 text-center"
-                      disabled={!day.enabled}
-                    />
-                  </div>
+                  
+                  {day.enabled && (
+                    <div className="text-sm text-gray-600">
+                      ~{Math.floor(
+                        ((parseInt(day.endTime.split(':')[0]) * 60 + parseInt(day.endTime.split(':')[1])) -
+                         (parseInt(day.startTime.split(':')[0]) * 60 + parseInt(day.startTime.split(':')[1]))) /
+                        day.slotDurationMinutes
+                      )} slots disponíveis
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
 
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Dica:</strong> Os limites padrão serão aplicados
-                automaticamente para todos os dias. Use as configurações de
-                datas específicas abaixo para exceções.
-              </p>
-            </div>
-          </Card>
-
-          {/* Datas Específicas */}
-          <Card className="p-6">
-            <div className="flex items-center mb-6">
-              <Calendar className="h-5 w-5 mr-2 text-green-600" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                Configurações de Datas Específicas
-              </h2>
-            </div>
-
-            {/* Formulário para nova data especial */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-md font-medium text-gray-900 mb-4">
-                Adicionar Nova Data
-              </h3>
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="new-date">Data</Label>
-                  <Input
-                    id="new-date"
-                    type="date"
-                    value={newSpecialDate.date}
-                    onChange={(e) =>
-                      setNewSpecialDate((prev) => ({
-                        ...prev,
-                        date: e.target.value,
-                      }))
-                    }
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="new-limit">Limite de Capacidade</Label>
-                  <Input
-                    id="new-limit"
-                    type="number"
-                    min="0"
-                    placeholder="Ex: 0 para fechado, 50 para capacidade especial"
-                    value={newSpecialDate.limit}
-                    onChange={(e) =>
-                      setNewSpecialDate((prev) => ({
-                        ...prev,
-                        limit: e.target.value,
-                      }))
-                    }
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="new-description">Descrição (opcional)</Label>
-                  <Input
-                    id="new-description"
-                    placeholder="Ex: Feriado, Evento especial, Manutenção"
-                    value={newSpecialDate.description}
-                    onChange={(e) =>
-                      setNewSpecialDate((prev) => ({
-                        ...prev,
-                        description: e.target.value,
-                      }))
-                    }
-                    className="mt-1"
-                  />
-                </div>
-                <Button onClick={handleAddSpecialDate} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Data Especial
-                </Button>
-              </div>
-            </div>
-
-            {/* Lista de datas especiais */}
-            <div className="space-y-3">
-              <h3 className="text-md font-medium text-gray-900">
-                Datas Configuradas
-              </h3>
-              {specialDates.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
-                  Nenhuma data especial configurada
-                </p>
-              ) : (
-                specialDates.map((specialDate) => (
-                  <div
-                    key={specialDate.id}
-                    className="flex items-center justify-between p-4 border rounded-lg"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">
-                        {formatDate(specialDate.date)}
+                {/* Configurações (só aparece se o dia estiver ativo) */}
+                {day.enabled && (
+                  <div className="space-y-4 pl-8">
+                    {/* Horários */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`start-${day.dayOfWeek}`} className="text-sm font-medium">
+                          Horário de Início
+                        </Label>
+                        <Input
+                          id={`start-${day.dayOfWeek}`}
+                          type="time"
+                          value={day.startTime}
+                          onChange={(e) => updateDayField(day.dayOfWeek, 'startTime', e.target.value)}
+                          className="mt-1"
+                        />
                       </div>
-                      {specialDate.description && (
-                        <div className="text-sm text-gray-500">
-                          {specialDate.description}
+                      <div>
+                        <Label htmlFor={`end-${day.dayOfWeek}`} className="text-sm font-medium">
+                          Horário de Fim
+                        </Label>
+                        <Input
+                          id={`end-${day.dayOfWeek}`}
+                          type="time"
+                          value={day.endTime}
+                          onChange={(e) => updateDayField(day.dayOfWeek, 'endTime', e.target.value)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Duração e Capacidade */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor={`duration-${day.dayOfWeek}`} className="text-sm font-medium">
+                          Duração do Slot (minutos)
+                        </Label>
+                        <Input
+                          id={`duration-${day.dayOfWeek}`}
+                          type="number"
+                          min="5"
+                          step="5"
+                          value={day.slotDurationMinutes}
+                          onChange={(e) => updateDayField(day.dayOfWeek, 'slotDurationMinutes', parseInt(e.target.value) || 30)}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor={`capacity-${day.dayOfWeek}`} className="text-sm font-medium">
+                          Capacidade por Slot
+                        </Label>
+                        <Input
+                          id={`capacity-${day.dayOfWeek}`}
+                          type="number"
+                          min="1"
+                          value={day.capacityPerSlot}
+                          onChange={(e) => updateDayField(day.dayOfWeek, 'capacityPerSlot', parseInt(e.target.value) || 1)}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Períodos de Pausa */}
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm font-medium">Períodos de Pausa</Label>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => addBreakPeriod(day.dayOfWeek)}
+                          className="text-xs"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Adicionar Pausa
+                        </Button>
+                      </div>
+
+                      {day.breakPeriods.length === 0 ? (
+                        <div className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded">
+                          Nenhuma pausa configurada
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {day.breakPeriods.map((breakPeriod) => (
+                            <div
+                              key={breakPeriod.id}
+                              className="flex items-center gap-2 p-3 bg-amber-50 rounded border border-amber-200"
+                            >
+                              <Coffee className="h-4 w-4 text-amber-600 shrink-0" />
+                              <Input
+                                type="time"
+                                value={breakPeriod.startTime}
+                                onChange={(e) =>
+                                  updateBreakPeriod(
+                                    day.dayOfWeek,
+                                    breakPeriod.id,
+                                    'startTime',
+                                    e.target.value
+                                  )
+                                }
+                                className="w-32"
+                              />
+                              <span className="text-gray-500">até</span>
+                              <Input
+                                type="time"
+                                value={breakPeriod.endTime}
+                                onChange={(e) =>
+                                  updateBreakPeriod(
+                                    day.dayOfWeek,
+                                    breakPeriod.id,
+                                    'endTime',
+                                    e.target.value
+                                  )
+                                }
+                                className="w-32"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeBreakPeriod(day.dayOfWeek, breakPeriod.id)}
+                                className="ml-auto text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
                         </div>
                       )}
-                      <div className="text-sm">
-                        <span
-                          className={`font-medium ${
-                            specialDate.limit === 0
-                              ? "text-red-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {specialDate.limit === 0
-                            ? "Fechado"
-                            : `Limite: ${specialDate.limit}`}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={specialDate.limit}
-                        onChange={(e) =>
-                          updateSpecialDateLocal(
-                            specialDate.id,
-                            "limit",
-                            parseInt(e.target.value) || 0
-                          )
-                        }
-                        className="w-20 text-center"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeSpecialDate(specialDate.date)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
+                )}
+              </div>
+            ))}
+          </div>
 
-            {specialDates.length > 0 && (
-              <div className="mt-6 p-4 bg-green-50 rounded-lg">
-                <p className="text-sm text-green-800">
-                  <strong>Total:</strong> {specialDates.length} data(s)
-                  especial(is) configurada(s). Essas configurações
-                  sobrescreverão os limites padrão da semana.
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Como funciona:</strong> Configure os horários de funcionamento para cada dia da semana. 
+              Os slots de agendamento serão gerados automaticamente com base na duração escolhida. 
+              Use os períodos de pausa para intervalos como almoço ou coffee break.
+            </p>
+          </div>
+
+          {/* Configuração de período para gerar slots */}
+          <div className="mt-6 p-6 bg-linear-to-r from-green-50 to-blue-50 rounded-lg border-2 border-green-200">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-green-600 rounded-lg">
+                <Settings className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Período de Geração de Slots
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Defina por quantos dias futuros os slots serão criados
                 </p>
               </div>
-            )}
-          </Card>
-        </div>
+            </div>
 
-        {/* Resumo das Configurações */}
-        <Card className="mt-8 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Resumo das Configurações
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
-                {weeklyLimits.filter((day) => day.enabled).length}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[7, 15, 30, 60, 90].map((days) => (
+                  <button
+                    key={days}
+                    onClick={() => setDaysAhead(days)}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      daysAhead === days
+                        ? 'border-green-600 bg-green-100 text-green-900'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-green-400'
+                    }`}
+                  >
+                    <div className="font-bold text-lg">{days}</div>
+                    <div className="text-xs">dias</div>
+                  </button>
+                ))}
               </div>
-              <div className="text-sm text-blue-800">Dias da semana ativos</div>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
-                {specialDates.length}
+
+              <div className="flex items-center gap-3">
+                <Label htmlFor="custom-days" className="text-sm font-medium whitespace-nowrap">
+                  Ou personalizar:
+                </Label>
+                <Input
+                  id="custom-days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  value={daysAhead}
+                  onChange={(e) => setDaysAhead(parseInt(e.target.value) || 30)}
+                  className="w-24"
+                />
+                <span className="text-sm text-gray-600">dias</span>
               </div>
-              <div className="text-sm text-green-800">Datas especiais</div>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-yellow-600">
-                {(() => {
-                  const enabled = weeklyLimits.filter((d) => d.enabled);
-                  const total = weeklyLimits.reduce(
-                    (sum, day) => sum + (day.enabled ? day.limit : 0),
-                    0
-                  );
-                  return enabled.length ? Math.round(total / enabled.length) : 0;
-                })()}
+
+              <div className="p-3 bg-white rounded border border-green-200">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Slots serão gerados até:</span>
+                  <span className="font-semibold text-gray-900">
+                    {(() => {
+                      const futureDate = new Date();
+                      futureDate.setDate(futureDate.getDate() + daysAhead);
+                      return futureDate.toLocaleDateString('pt-BR', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                      });
+                    })()}
+                  </span>
+                </div>
               </div>
-              <div className="text-sm text-yellow-800">
-                Limite médio semanal
+
+              <div className="text-xs text-gray-500 italic">
+                💡 <strong>Dica:</strong> Recomendamos 30 dias para uso regular. 
+                Para eventos ou períodos especiais, você pode gerar mais dias.
               </div>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">
-                {specialDates.filter((date) => date.limit === 0).length}
-              </div>
-              <div className="text-sm text-red-800">Dias fechados</div>
             </div>
           </div>
         </Card>

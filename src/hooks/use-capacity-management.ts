@@ -1,218 +1,255 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import { toast } from "sonner";
+import { availabilityConfigSchema } from "@/lib/validations/availability-config";
 
-
-interface WeeklyLimit {
-  id: number;
-  name: string;
-  shortName: string;
-  dayOfWeek: number;
-  limit: number;
-  enabled: boolean;
+/**
+ * Configuração retornada pela API
+ */
+interface AvailabilityConfigResponse {
+  id: string;
+  dayOfWeek?: number;
+  date?: string;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+  capacityPerSlot: number;
+  isException: boolean;
+  isActive: boolean;
+  breakPeriods?: BreakPeriod[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-interface SpecialDate {
-  id: string;
-  date: string;
-  limit: number;
-  description?: string;
+/**
+ * Configuração de um dia da semana
+ */
+interface DayConfig {
+  dayOfWeek: number; // 0 (Domingo) a 6 (Sábado)
+  name: string; // "Segunda-feira"
+  shortName: string; // "Seg"
+  enabled: boolean; // Dia ativo para agendamentos?
+  startTime: string; // Horário de início (ex: "09:00")
+  endTime: string; // Horário de fim (ex: "18:00")
+  slotDurationMinutes: number; // Duração de cada slot em minutos (ex: 30)
+  capacityPerSlot: number; // Quantas pessoas por slot (ex: 20)
+  breakPeriods: BreakPeriod[]; // Períodos de pausa/indisponibilidade
+}
+
+/**
+ * Período de pausa dentro de um dia
+ * Durante a pausa, os slots não ficam disponíveis para agendamento
+ */
+interface BreakPeriod {
+  id: string; // ID único local (gerado no client)
+  startTime: string; // Início da pausa (ex: "12:00")
+  endTime: string; // Fim da pausa (ex: "13:00")
 }
 
 const WEEKDAYS = [
-  { id: 0, name: 'Domingo', shortName: 'Dom', dayOfWeek: 0 },
-  { id: 1, name: 'Segunda-feira', shortName: 'Seg', dayOfWeek: 1 },
-  { id: 2, name: 'Terça-feira', shortName: 'Ter', dayOfWeek: 2 },
-  { id: 3, name: 'Quarta-feira', shortName: 'Qua', dayOfWeek: 3 },
-  { id: 4, name: 'Quinta-feira', shortName: 'Qui', dayOfWeek: 4 },
-  { id: 5, name: 'Sexta-feira', shortName: 'Sex', dayOfWeek: 5 },
-  { id: 6, name: 'Sábado', shortName: 'Sáb', dayOfWeek: 6 },
+  { dayOfWeek: 0, name: "Domingo", shortName: "Dom" },
+  { dayOfWeek: 1, name: "Segunda-feira", shortName: "Seg" },
+  { dayOfWeek: 2, name: "Terça-feira", shortName: "Ter" },
+  { dayOfWeek: 3, name: "Quarta-feira", shortName: "Qua" },
+  { dayOfWeek: 4, name: "Quinta-feira", shortName: "Qui" },
+  { dayOfWeek: 5, name: "Sexta-feira", shortName: "Sex" },
+  { dayOfWeek: 6, name: "Sábado", shortName: "Sáb" },
 ];
 
-export function useCapacityManagement(isAuthenticated: boolean) {
-  const [weeklyLimits, setWeeklyLimits] = useState<WeeklyLimit[]>([]);
-  const [specialDates, setSpecialDates] = useState<SpecialDate[]>([]);
+/**
+ * Hook para gerenciar configuração de horários semanais
+ * 
+ * Fluxo:
+ * 1. Usuário configura dias da semana (checkbox para ativar/desativar)
+ * 2. Para cada dia ativo, define horário início/fim, duração do slot e capacidade
+ * 3. Pode adicionar períodos de pausa (almoço, intervalos, etc)
+ * 4. Salva configuração que gera TimeSlots automaticamente no backend
+ */
+export function useAvailabilitySchedule() {
+  const [weekConfig, setWeekConfig] = useState<DayConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [daysAhead, setDaysAhead] = useState(30); // Padrão: 30 dias
 
   useEffect(() => {
-    if (isAuthenticated) {
-      loadConfiguration();
-    } else {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
+    loadWeeklySchedule();
+  }, []);
 
-  const loadConfiguration = async () => {
+  // Carrega configuração da semana
+  const loadWeeklySchedule = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/capacity');
+      const response = await fetch("/api/availability-configs");
       
-      if (!response.ok) {
-        throw new Error('Erro ao carregar configurações');
-      }
-
-      const result = await response.json();
+      if (!response.ok) throw new Error("Erro ao carregar configurações");
       
-      if (result.success && result.data) {
-        // Mapear capacidades semanais
-        const weeklyData = WEEKDAYS.map((day) => {
-          const capacity = result.data.weeklyCapacities.find(
-            (wc: { dayOfWeek: number; limit: number; enabled: boolean }) => 
-              wc.dayOfWeek === day.dayOfWeek
-          );
-          return {
-            ...day,
-            limit: capacity?.limit ?? 30,
-            enabled: capacity?.enabled ?? true,
-          };
-        });
-        setWeeklyLimits(weeklyData);
+      const configs = await response.json();
 
-        // Mapear datas especiais
-        const specialData = result.data.specialDates.map(
-          (sd: { date: string; limit: number; description?: string }, index: number) => ({
-            id: `special-${index}`,
-            date: sd.date,
-            limit: sd.limit,
-            description: sd.description,
-          })
+      const weekData: DayConfig[] = WEEKDAYS.map((day) => {
+        const config = configs.find(
+          (c: AvailabilityConfigResponse) => c.dayOfWeek === day.dayOfWeek && !c.isException
         );
-        setSpecialDates(specialData);
-      }
+
+        return {
+          dayOfWeek: day.dayOfWeek,
+          name: day.name,
+          shortName: day.shortName,
+          enabled: config?.isActive ?? false,
+          startTime: config?.startTime ?? "09:00",
+          endTime: config?.endTime ?? "18:00",
+          slotDurationMinutes: config?.slotDurationMinutes ?? 30,
+          capacityPerSlot: config?.capacityPerSlot ?? 20,
+          breakPeriods: config?.breakPeriods ?? [],
+        };
+      });
+
+      setWeekConfig(weekData);
     } catch (error) {
-      console.error('Erro ao carregar configurações:', error);
+      console.error("Erro ao carregar configurações:", error);
+      toast.error("Erro ao carregar configurações semanais");
     } finally {
       setLoading(false);
     }
   };
 
-  const saveConfiguration = async () => {
+  // Salva toda a configuração semanal
+  const saveWeeklySchedule = async () => {
     try {
       setSaving(true);
 
-      const payload = {
-        weeklyCapacities: weeklyLimits.map((day) => ({
-          dayOfWeek: day.dayOfWeek,
-          limit: day.limit,
-          enabled: day.enabled,
-        })),
-        specialDates: specialDates.map((sd) => ({
-          date: sd.date,
-          limit: sd.limit,
-          description: sd.description,
-        })),
-      };
+      const payload = weekConfig.map((day) => ({
+        dayOfWeek: day.dayOfWeek,
+        startTime: day.startTime,
+        endTime: day.endTime,
+        slotDurationMinutes: day.slotDurationMinutes,
+        capacityPerSlot: day.capacityPerSlot,
+        breakPeriods: day.breakPeriods,
+        isActive: day.enabled,
+        isException: false,
+      }));
 
-      const response = await fetch('/api/capacity', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+      // Validar todos os payloads
+      payload.forEach((p) => availabilityConfigSchema.parse(p));
+
+      const response = await fetch("/api/availability-configs/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          configs: payload,
+          daysAhead, // Enviar quantos dias gerar
+        }),
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Erro ao salvar configurações');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Erro ao salvar");
       }
 
-      alert('Configurações salvas com sucesso!');
+      const result = await response.json();
+      toast.success(
+        `Configurações salvas! ${result.data?.totalSlots || 0} slots gerados para os próximos ${daysAhead} dias.`
+      );
+      await loadWeeklySchedule(); // Recarrega dados atualizados
       return true;
     } catch (error) {
-      console.error('Erro ao salvar configurações:', error);
-      alert('Erro ao salvar configurações. Tente novamente.');
+      console.error("Erro ao salvar:", error);
+      toast.error("Erro ao salvar configurações");
       return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const updateWeeklyLimit = (id: number, newLimit: number) => {
-    setWeeklyLimits((prev) =>
-      prev.map((day) => (day.id === id ? { ...day, limit: newLimit } : day))
+  // Toggle dia ativo/inativo
+  const toggleDay = (dayOfWeek: number) => {
+    setWeekConfig((prev) =>
+      prev.map((day) =>
+        day.dayOfWeek === dayOfWeek
+          ? { ...day, enabled: !day.enabled }
+          : day
+      )
     );
   };
 
-  const toggleWeekdayEnabled = (id: number) => {
-    setWeeklyLimits((prev) =>
-      prev.map((day) => (day.id === id ? { ...day, enabled: !day.enabled } : day))
+  // Atualiza um campo específico do dia (horários, duração, capacidade)
+  const updateDayField = (
+    dayOfWeek: number,
+    field: keyof Omit<DayConfig, 'dayOfWeek' | 'name' | 'shortName' | 'breakPeriods'>,
+    value: string | number | boolean
+  ) => {
+    setWeekConfig((prev) =>
+      prev.map((day) =>
+        day.dayOfWeek === dayOfWeek ? { ...day, [field]: value } : day
+      )
     );
   };
 
-  const addSpecialDate = async (date: string, limit: number, description?: string) => {
-    try {
-      const response = await fetch('/api/capacity/special-dates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ date, limit, description }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Erro ao adicionar data especial');
-      }
-
-      // Adicionar localmente
-      const newSpecialDate: SpecialDate = {
-        id: `special-${Date.now()}`,
-        date,
-        limit,
-        description,
-      };
-      setSpecialDates((prev) => [...prev, newSpecialDate]);
-      
-      alert('Data especial adicionada com sucesso!');
-      return true;
-    } catch (error) {
-      console.error('Erro ao adicionar data especial:', error);
-      alert('Erro ao adicionar data especial. Tente novamente.');
-      return false;
-    }
+  // Adiciona período de pausa
+  const addBreakPeriod = (dayOfWeek: number) => {
+    setWeekConfig((prev) =>
+      prev.map((day) =>
+        day.dayOfWeek === dayOfWeek
+          ? {
+              ...day,
+              breakPeriods: [
+                ...day.breakPeriods,
+                {
+                  id: `break-${Date.now()}`,
+                  startTime: "12:00",
+                  endTime: "13:00",
+                },
+              ],
+            }
+          : day
+      )
+    );
   };
 
-  const removeSpecialDate = async (date: string) => {
-    try {
-      const response = await fetch(`/api/capacity/special-dates/${date}`, {
-        method: 'DELETE',
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Erro ao remover data especial');
-      }
-
-      // Remover localmente
-      setSpecialDates((prev) => prev.filter((sd) => sd.date !== date));
-      
-      return true;
-    } catch (error) {
-      console.error('Erro ao remover data especial:', error);
-      alert('Erro ao remover data especial. Tente novamente.');
-      return false;
-    }
+  // Remove período de pausa
+  const removeBreakPeriod = (dayOfWeek: number, breakId: string) => {
+    setWeekConfig((prev) =>
+      prev.map((day) =>
+        day.dayOfWeek === dayOfWeek
+          ? {
+              ...day,
+              breakPeriods: day.breakPeriods.filter((b) => b.id !== breakId),
+            }
+          : day
+      )
+    );
   };
 
-  const updateSpecialDateLocal = (id: string, field: keyof SpecialDate, value: string | number) => {
-    setSpecialDates((prev) =>
-      prev.map((sd) => (sd.id === id ? { ...sd, [field]: value } : sd))
+  // Atualiza período de pausa
+  const updateBreakPeriod = (
+    dayOfWeek: number,
+    breakId: string,
+    field: "startTime" | "endTime",
+    value: string
+  ) => {
+    setWeekConfig((prev) =>
+      prev.map((day) =>
+        day.dayOfWeek === dayOfWeek
+          ? {
+              ...day,
+              breakPeriods: day.breakPeriods.map((b) =>
+                b.id === breakId ? { ...b, [field]: value } : b
+              ),
+            }
+          : day
+      )
     );
   };
 
   return {
-    weeklyLimits,
-    specialDates,
+    weekConfig,
     loading,
     saving,
-    isAuthenticated,
-    saveConfiguration,
-    updateWeeklyLimit,
-    toggleWeekdayEnabled,
-    addSpecialDate,
-    removeSpecialDate,
-    updateSpecialDateLocal,
+    daysAhead,
+    setDaysAhead,
+    saveWeeklySchedule,
+    toggleDay,
+    updateDayField,
+    addBreakPeriod,
+    removeBreakPeriod,
+    updateBreakPeriod,
   };
 }

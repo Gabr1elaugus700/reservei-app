@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
-import { z } from "zod";
+import { availabilityConfigSchema } from "@/lib/validations/availability-config.schema";
+import { syncTimeSlotsForConfig } from "@/lib/timeslot-service";
 
 // GET /api/availability-configs - Get all availability configs
 export async function GET() {
@@ -38,18 +39,6 @@ export async function GET() {
   }
 }
 
-// Schema for validating availability config data
-const availabilityConfigSchema = z.object({
-  dayOfWeek: z.number().min(0).max(6).optional(), // 0 (Sunday) to 6 (Saturday)
-  startTime: z.string().regex(/^\d{2}:\d{2}$/), // HH:MM format
-  endTime: z.string().regex(/^\d{2}:\d{2}$/), // HH:MM format
-  slotDurationMinutes: z.number().min(1).default(30),
-  capacityPerSlot: z.number().min(1).default(1),
-  isException: z.boolean().default(false),
-  isActive: z.boolean().default(true),
-  date: z.string().optional(),
-});
-
 // POST /api/availability-configs - Create new availability config
 export async function POST(request: Request) {
   try {
@@ -62,15 +51,54 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const parsedData = availabilityConfigSchema.parse(body);
+    
+    // Validar payload
+    const validation = availabilityConfigSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: "Dados inválidos",
+          errors: validation.error.flatten().fieldErrors 
+        },
+        { status: 400 }
+      );
+    }
 
+    const parsedData = validation.data;
+
+    // Criar configuração
     const newConfig = await prisma.availabilityConfig.create({
-      data: parsedData,
+      data: {
+        dayOfWeek: parsedData.dayOfWeek,
+        date: parsedData.date ? new Date(parsedData.date) : null,
+        startTime: parsedData.startTime,
+        endTime: parsedData.endTime,
+        slotDurationMinutes: parsedData.slotDurationMinutes,
+        capacityPerSlot: parsedData.capacityPerSlot,
+        isException: parsedData.isException,
+        isActive: parsedData.isActive,
+        breakPeriods: parsedData.breakPeriods || [],
+      } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     });
 
-    return NextResponse.json(newConfig, { status: 201 });
+    // Gerar TimeSlots automaticamente
+    await syncTimeSlotsForConfig(newConfig.id);
+
+    return NextResponse.json({
+      success: true,
+      data: newConfig,
+    }, { status: 201 });
   } catch (error) {
     console.error("Error creating availability config:", error);
+    
+    if (error instanceof Error) {
+      return NextResponse.json(
+        { success: false, message: error.message },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       { success: false, message: "Internal Server Error" },
       { status: 500 }

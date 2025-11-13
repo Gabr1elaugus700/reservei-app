@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
-import { z } from "zod";
+import { availabilityConfigSchema } from "@/lib/validations/availability-config.schema";
 
 // GET /api/availability-configs/[id] - Get availability config by ID
 export async function GET( request: Request, { params }: { params: { id: string } } ) {
@@ -79,18 +79,6 @@ export async function DELETE( request: Request, { params }: { params: { id: stri
     }
 }
 
-// Schema for validating availability config data
-const availabilityConfigSchema = z.object({
-    id: z.string(),
-  dayOfWeek: z.number().min(0).max(6).optional(), // 0 (Sunday) to 6 (Saturday)
-  startTime: z.string().regex(/^\d{2}:\d{2}$/), // HH:MM format
-  endTime: z.string().regex(/^\d{2}:\d{2}$/), // HH:MM format
-  slotDurationMinutes: z.number().min(1).default(30),
-  capacityPerSlot: z.number().min(1).default(1),
-  isException: z.boolean().default(false),
-  isActive: z.boolean().default(true),
-  date: z.string().optional(),
-});
 
 // PUT /api/availability-configs/[id] - Update availability config by ID
 export async function PUT( request: Request, { params }: { params: { id: string } } ) {
