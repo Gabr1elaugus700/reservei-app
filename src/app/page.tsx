@@ -7,6 +7,7 @@ import Image from "next/image";
 import { BookingCalendar } from "@/components/BookingCalendar";
 import { Input } from "@/components/ui/input";
 import TimeSlot from "@/components/TimeSlot";
+import { useTimeSlots } from "@/hooks/use-timeslots";
 
 interface Visitors {
   childrens: number;
@@ -23,7 +24,11 @@ interface Responsible {
 const Index = () => {
   // Date
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string>("");
+    const [selectedTimeSlotId, setSelectedTimeSlotId] = useState<string>("");
+    const [isBookingLoading, setIsBookingLoading] = useState(false);
+
+    // Fetch time slots based on selected date
+    const { timeSlots, loading: timeSlotsLoading, error: timeSlotsError } = useTimeSlots(selectedDate);
 
   // Customer
   const [responsibleName, setResponsibleName] = useState("");
@@ -69,20 +74,26 @@ const Index = () => {
     setIsLoadingCustomer(true);
 
     try {
-      const response = await fetch(`/api/customer/${whatsappNumber}`);
-      console.log("Response:", response);
+      const response = await fetch(`/api/customer?phone=${encodeURIComponent(whatsappNumber)}`);
       const result = await response.json();
 
-      if (result.found) {
-        setResponsibleName(result.name);
+      if (response.ok && result.success) {
+        // Customer found
+        setResponsibleName(result.data.name);
         setShowNameField(true);
         setIsCustomerFound(true);
-        setCustomerId(result.id);
-      } else {
+        setCustomerId(result.data.id);
+        toast.success("Cliente encontrado!");
+      } else if (response.status === 404) {
+        // Customer not found, show name field
         setShowNameField(true);
         setIsCustomerFound(false);
+        toast.info("Novo cliente - informe o nome");
+      } else {
+        throw new Error(result.message || "Erro ao buscar cliente");
       }
     } catch (error) {
+      console.error("Error searching customer:", error);
       toast.error(
         "Erro ao buscar cliente" +
           (error instanceof Error ? `: ${error.message}` : "")
@@ -113,47 +124,92 @@ const Index = () => {
     setVisitors([visitorsData]);
   }, [adultsCount, childrensCount, responsibleName, whatsappNumber, customerId]);
 
-  // Gerar horários disponíveis (09:00 às 18:00, intervalos de 30min) -- Alterar para montar via backend return
-  const generateTimeSlots = () => {
-    const slots = [];
-    for (let hour = 9; hour <= 18; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        if (hour === 18 && minute > 0) break; // Parar às 18:00
-        const time = `${hour.toString().padStart(2, "0")}:${minute
-          .toString()
-          .padStart(2, "0")}`;
-        slots.push(time);
-      }
-    }
-    return slots;
-  };
-
-  const timeSlots = generateTimeSlots(); // Array de horários disponíveis
-
-  // Simular capacidade por horário (em produção, viria do backend)
-  const getTimeSlotCapacity = (time: string) => {
-    // Capacidade máxima: 20 pessoas
-    // Simulando alguns horários com ocupação
-    const occupiedSlots: { [key: string]: number } = {
-      "10:00": 20, // Cheio
-      "11:00": 18,
-      "14:00": 20, // Cheio
-      "15:30": 19,
-    };
-    return {
-      occupied: occupiedSlots[time] || 0,
-      max: 20,
-      isFull: occupiedSlots[time] >= 20,
-    };
-  };
-
-  const handleBooking = () => {
-    if (!selectedDate || !selectedTime || !visitors) {
+  const handleBooking = async () => {
+    if (!selectedDate || !selectedTimeSlotId || !visitors.length) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
-    toast.success("Agendamento realizado com sucesso!");
+    if (!responsibleName || !whatsappNumber) {
+      toast.error("Preencha os dados do responsável");
+      return;
+    }
+
+    try {
+      setIsBookingLoading(true);
+
+      // Se não houver customerId, criar novo customer
+      let finalCustomerId = customerId;
+      if (!finalCustomerId) {
+        const customerResponse = await fetch("/api/customer", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: responsibleName,
+            phone: whatsappNumber,
+          }),
+        });
+
+        const customerResult = await customerResponse.json();
+        
+        if (!customerResponse.ok || !customerResult.success) {
+          throw new Error(customerResult.message || "Erro ao criar cliente");
+        }
+
+        finalCustomerId = customerResult.data.id;
+        setCustomerId(finalCustomerId);
+      }
+
+      const selectedSlot = timeSlots.find(slot => slot.id === selectedTimeSlotId);
+      if (!selectedSlot) {
+        toast.error("Slot selecionado inválido");
+        return;
+      }
+
+      const totalPrice = (adultsCount * 10) + (childrensCount * 5);
+
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          timeSlotId: selectedTimeSlotId,
+          customerId: finalCustomerId,
+          date: selectedDate.toISOString().split("T")[0],
+          time: selectedSlot.startTime,
+          adults: adultsCount,
+          children: childrensCount,
+          totalPrice: totalPrice,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Erro ao criar agendamento");
+      }
+
+      toast.success("Agendamento realizado com sucesso!");
+      
+      // Limpar formulário
+      setSelectedDate(null);
+      setSelectedTimeSlotId("");
+        setAdultsCount(1);
+        setChildrensCount(0);
+        setWhatsappNumber("");
+        setResponsibleName("");
+        setCustomerId("");
+        setIsCustomerFound(false);
+        setShowNameField(false);
+      } catch (error) {
+        console.error("Error creating booking:", error);
+        toast.error(error instanceof Error ? error.message : "Erro ao criar agendamento");
+      } finally {
+        setIsBookingLoading(false);
+      }
   };
 
   return (
@@ -204,9 +260,19 @@ const Index = () => {
 
         {/* Time Selection */}
         {selectedDate && (
-          <>
-            {TimeSlot(timeSlots, getTimeSlotCapacity, selectedTime, setSelectedTime)}
-          </>
+          <TimeSlot
+            timeSlots={timeSlots}
+            selectedTimeSlotId={selectedTimeSlotId}
+            onSelectTimeSlot={setSelectedTimeSlotId}
+            loading={timeSlotsLoading}
+          />
+        )}
+
+        {/* Error message for time slots */}
+        {timeSlotsError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+            {timeSlotsError}
+          </div>
         )}
 
         {/* Responsible Person */}
@@ -317,8 +383,16 @@ const Index = () => {
         <Button
           className="w-full h-14 text-lg font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
           onClick={handleBooking}
+          disabled={isBookingLoading || !selectedDate || !selectedTimeSlotId || !responsibleName || !whatsappNumber}
         >
-          Confirmar Agendamento
+          {isBookingLoading ? (
+            <>
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Processando...
+            </>
+          ) : (
+            "Confirmar Agendamento"
+          )}
         </Button>
       </main>
     </div>
