@@ -9,53 +9,168 @@ export interface Booking {
   time: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
   date: string;
+  totalPrice: number;
+  notes?: string;
+}
+
+export interface TimeSlot {
+  id: string;
+  startTime: string;
+  endTime: string;
+  totalCapacity: number;
+  availableCapacity: number;
+  isAvailable: boolean;
+}
+
+export interface SlotWithBookings {
+  slot: TimeSlot;
+  bookings: Booking[];
+  totalRevenue: number;
 }
 
 export function useBookings(initialDate: Date = new Date()) {
   const [currentDate, setCurrentDate] = useState(initialDate);
+  const [slotGroups, setSlotGroups] = useState<SlotWithBookings[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalDayRevenue, setTotalDayRevenue] = useState(0);
 
   useEffect(() => {
-    loadBookings();
+    loadBookingsAndSlots();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
-  const loadBookings = async () => {
+  const loadBookingsAndSlots = async () => {
     try {
       setLoading(true);
       setError(null);
 
       const dateString = currentDate.toISOString().split("T")[0];
-      const response = await fetch(`/api/bookings?date=${dateString}`);
+      
+      // Buscar slots e bookings em paralelo
+      const [slotsResponse, bookingsResponse] = await Promise.all([
+        fetch(`/api/timeslots?date=${dateString}`),
+        fetch(`/api/bookings?date=${dateString}`),
+      ]);
 
-      const result = await response.json();
+      const slotsResult = await slotsResponse.json();
+      const bookingsResult = await bookingsResponse.json();
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Error fetching bookings");
+      if (!slotsResponse.ok || !slotsResult.success) {
+        throw new Error(slotsResult.message || "Error fetching slots");
       }
 
-      setBookings(result.data);
+      if (!bookingsResponse.ok || !bookingsResult.success) {
+        throw new Error(bookingsResult.message || "Error fetching bookings");
+      }
+
+      const slots: TimeSlot[] = slotsResult.data;
+      const bookingsData: Booking[] = bookingsResult.data;
+
+      // Agrupar bookings por slot
+      const grouped = slots.map((slot) => {
+        const slotBookings = bookingsData.filter(
+          (booking) => booking.time === slot.startTime
+        );
+        const revenue = slotBookings.reduce(
+          (sum, booking) => sum + (booking.totalPrice || 0),
+          0
+        );
+        return {
+          slot,
+          bookings: slotBookings,
+          totalRevenue: revenue,
+        };
+      });
+
+      // Calcular faturamento total do dia
+      const dayRevenue = grouped.reduce(
+        (sum, group) => sum + group.totalRevenue,
+        0
+      );
+
+      setSlotGroups(grouped);
+      setBookings(bookingsData);
+      setTotalDayRevenue(dayRevenue);
     } catch (err) {
-      console.error("Error loading bookings:", err);
+      console.error("Error loading bookings and slots:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
+      setSlotGroups([]);
       setBookings([]);
+      setTotalDayRevenue(0);
     } finally {
       setLoading(false);
     }
   };
 
-  const previousDay = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() - 1);
-    setCurrentDate(newDate);
+  const updateBooking = async (
+    bookingId: string,
+    updates: { adults?: number; children?: number; status?: string }
+  ) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Error updating booking");
+      }
+
+      // Recarregar os dados
+      await loadBookingsAndSlots();
+      return result.data;
+    } catch (err) {
+      console.error("Error updating booking:", err);
+      throw err;
+    }
   };
 
-  const nextDay = () => {
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + 1);
-    setCurrentDate(newDate);
+  const findNextDayWithSlots = async (direction: "forward" | "backward") => {
+    let testDate = new Date(currentDate);
+    let attempts = 0;
+    const maxAttempts = 30; // Evitar loop infinito
+
+    while (attempts < maxAttempts) {
+      testDate.setDate(
+        testDate.getDate() + (direction === "forward" ? 1 : -1)
+      );
+      attempts++;
+
+      const dateString = testDate.toISOString().split("T")[0];
+      const response = await fetch(`/api/timeslots?date=${dateString}`);
+      const result = await response.json();
+
+      if (result.success && result.data.length > 0) {
+        return testDate;
+      }
+    }
+
+    return null;
+  };
+
+  const previousDay = async () => {
+    const prevDate = await findNextDayWithSlots("backward");
+    if (prevDate) {
+      setCurrentDate(prevDate);
+    } else {
+      setError("Nenhum dia com slots disponíveis nos últimos 30 dias");
+    }
+  };
+
+  const nextDay = async () => {
+    const nextDate = await findNextDayWithSlots("forward");
+    if (nextDate) {
+      setCurrentDate(nextDate);
+    } else {
+      setError("Nenhum dia com slots disponíveis nos próximos 30 dias");
+    }
   };
 
   const goToToday = () => {
@@ -68,12 +183,16 @@ export function useBookings(initialDate: Date = new Date()) {
 
   return {
     currentDate,
+    slotGroups,
     bookings,
+    totalDayRevenue,
     loading,
     error,
     previousDay,
     nextDay,
     goToToday,
     goToDate,
+    updateBooking,
+    refreshData: loadBookingsAndSlots,
   };
 }

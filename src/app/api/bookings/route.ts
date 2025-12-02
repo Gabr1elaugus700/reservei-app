@@ -38,16 +38,24 @@ export async function GET(request: NextRequest) {
       include: {
         customer: true,
       },
+      orderBy: {
+        time: 'asc',
+      },
     });
 
     return NextResponse.json({
       success: true,
       data: bookings.map((booking) => ({
         id: booking.id,
-        responsible: booking.customer.name,
+        name: booking.customer.name,
         phone: booking.customer.phone,
-        dateTime: booking.date,
+        date: booking.date,
+        time: booking.time,
+        adults: booking.adults,
+        children: booking.children,
+        totalPrice: booking.totalPrice ? Number(booking.totalPrice) : 0,
         status: booking.status,
+        notes: booking.notes,
       })),
     });
   } catch (error) {
@@ -80,8 +88,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calcular total de pessoas
-    const totalPeople = adults + (children || 0);
+    // Apenas adultos contam para capacidade (crianças são apenas pagantes)
+    const capacityNeeded = adults;
 
     // Usar transação para garantir atomicidade
     const result = await prisma.$transaction(async (tx) => {
@@ -94,8 +102,8 @@ export async function GET(request: NextRequest) {
         throw new Error("Time slot not found");
       }
 
-      if (timeSlot.availableCapacity < totalPeople) {
-        throw new Error(`Time slot does not have enough capacity. Available: ${timeSlot.availableCapacity}, Required: ${totalPeople}`);
+      if (timeSlot.availableCapacity < capacityNeeded) {
+        throw new Error(`Time slot does not have enough capacity. Available: ${timeSlot.availableCapacity}, Required: ${capacityNeeded}`);
       }        // 2. Criar o booking
         const booking = await tx.booking.create({
           data: {
@@ -114,12 +122,12 @@ export async function GET(request: NextRequest) {
           },
         });
 
-      // 3. Decrementar a capacidade disponível pelo total de pessoas
+      // 3. Decrementar a capacidade disponível apenas por adultos
       await tx.timeSlot.update({
         where: { id: timeSlotId },
         data: {
           availableCapacity: {
-            decrement: totalPeople,
+            decrement: capacityNeeded,
           },
         },
       });
