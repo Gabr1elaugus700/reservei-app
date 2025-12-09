@@ -229,48 +229,34 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen  from-background to-muted">
-      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-        {/* Hero Image Card */}
-        <div className="relative rounded-3xl overflow-hidden shadow-2xl transform hover:scale-[1.02] transition-transform duration-300">
+    <div className="min-h-screen relative">
+      {/* Background com textura de uvas */}
+      <div className="fixed inset-0 -z-10">
+        <Image
+          src={"/images/texturas_uvas.png"}
+          alt="Textura de fundo"
+          fill
+          className="object-cover"
+          priority
+        />
+      </div>
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        {/* Logo */}
+        <div className="relative rounded-3xl overflow-hidden shadow-xl h-48 sm:h-64">
           <Image
-            src={"/images/recanto_uva_fina.png"}
-            alt="Visita ao Parque"
-            width={400}
-            height={800}
-            className="w-full h-64 sm:h-72 object-cover"
+            src={"/images/logo2.png"}
+            alt="Recanto Da Uva Fina"
+            fill
+            className="object-cover"
+            priority
+            sizes="(max-width: 768px) 100vw, 672px"
           />
-          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/40 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8 text-white">
-            <h2 className="text-3xl sm:text-4xl font-bold mb-3">
-              Recanto Da Uva Fina
-            </h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-end">
-              <div>
-                <span className="text-sm opacity-90 block mb-1">
-                Valor por Adulto: (A partir de 10 anos)
-                </span>
-                <span className="text-3xl sm:text-4xl font-bold">R$ 10,00</span>
-              </div>
-              <div>
-                <span className="text-sm opacity-90 block mb-1">
-                Criança de 5 a 9 anos:
-                </span>
-                <span className="text-3xl sm:text-4xl font-bold">R$ 5,00</span>
-              </div>
-              </div>
-              <div>
-              <span className="text-sm opacity-90 block">
-                Crianças até 4 anos: <strong>Grátis</strong>
-              </span>
-              </div>
-            </div>
-          </div>
         </div>
 
+        {/* Informações de Valores */}
+
         {/* Date Selection */}
-        <div className="bg-card rounded-2xl shadow-lg p-6 sm:p-8 border border-border">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 sm:p-8 border border-border">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-10 w-1 bg-primary rounded-full" />
             <h3 className="text-xl font-bold">Selecione a Data</h3>
@@ -299,7 +285,7 @@ const Index = () => {
         )}
 
         {/* Responsible Person */}
-        <div className="bg-card rounded-2xl shadow-lg p-6 sm:p-8 border border-border">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 sm:p-8 border border-border">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-10 w-1 bg-primary rounded-full" />
             <h3 className="text-xl font-bold">Responsável pelo Passeio</h3>
@@ -350,9 +336,36 @@ const Index = () => {
             )}
           </div>
         </div>
-
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 sm:p-6 border border-border">
+          <h3 className="text-lg sm:text-xl font-bold mb-3 text-center">
+            Recanto Da Uva Fina
+          </h3>
+          <div className="space-y-2">
+            <div className="p-3 bg-background rounded-lg">
+              <span className="text-xs text-muted-foreground block">
+                Valor por Adulto (A partir de 10 anos)
+              </span>
+              <span className="text-xl sm:text-2xl font-bold text-primary">
+                R$ 10,00
+              </span>
+            </div>
+            <div className="p-3 bg-background rounded-lg">
+              <span className="text-xs text-muted-foreground block">
+                Criança de 5 a 9 anos
+              </span>
+              <span className="text-xl sm:text-2xl font-bold text-primary">
+                R$ 5,00
+              </span>
+            </div>
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+              <span className="text-sm font-bold text-green-700">
+                Crianças até 4 anos: GRÁTIS
+              </span>
+            </div>
+          </div>
+        </div>
         {/* Visitors */}
-        <div className="bg-card rounded-2xl shadow-lg p-6 sm:p-8 border border-border">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 sm:p-8 border border-border">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-10 w-1 bg-primary rounded-full" />
             <h3 className="text-xl font-bold">Visitantes</h3>
