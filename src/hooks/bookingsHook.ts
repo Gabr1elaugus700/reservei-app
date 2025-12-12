@@ -9,6 +9,7 @@ export interface Booking {
   time: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
   date: string;
+  timeSlot: string;
 }
 
 export function useBookings(initialDate: Date = new Date()) {
@@ -24,7 +25,7 @@ export function useBookings(initialDate: Date = new Date()) {
 
   const loadBookings = async () => {
     try {
-      setLoading(true);
+      setLoading(true); 
       setError(null);
 
       const dateString = currentDate.toISOString().split("T")[0];
