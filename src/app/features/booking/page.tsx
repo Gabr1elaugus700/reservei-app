@@ -1,40 +1,89 @@
 'use client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, Settings, List, Users, Clock, TrendingUp, BarChart3 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+interface DashboardStats {
+  bookingsToday: {
+    value: string;
+    description: string;
+    trend: string;
+  };
+  capacityToday: {
+    value: string;
+    description: string;
+    trend: string;
+  };
+  occupationRate: {
+    value: string;
+    description: string;
+    trend: string;
+  };
+  nextBooking: {
+    value: string;
+    description: string;
+    trend: string;
+  };
+}
 
 const Index = () => {
-  
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const stats = [
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/dashboard/stats');
+        const result = await response.json();
+        
+        if (result.success) {
+          setStats(result.data);
+        } else {
+          setError(result.message || 'Erro ao carregar estatísticas');
+        }
+      } catch (err) {
+        setError('Erro ao conectar com o servidor');
+        console.error('Error fetching dashboard stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  const statsConfig = stats ? [
     {
       title: "Agendamentos Hoje",
-      value: "12",
-      description: "3 pendentes de confirmação",
+      value: stats.bookingsToday.value,
+      description: stats.bookingsToday.description,
       icon: Calendar,
-      trend: "+5% vs ontem"
+      trend: stats.bookingsToday.trend
     },
     {
       title: "Capacidade Atual",
-      value: "65%",
-      description: "78 de 120 vagas ocupadas",
+      value: stats.capacityToday.value,
+      description: stats.capacityToday.description,
       icon: Users,
-      trend: "Normal para este período"
+      trend: stats.capacityToday.trend
     },
     {
       title: "Taxa de Ocupação",
-      value: "82%",
-      description: "Média dos últimos 7 dias",
+      value: stats.occupationRate.value,
+      description: stats.occupationRate.description,
       icon: TrendingUp,
-      trend: "+12% vs semana passada"
+      trend: stats.occupationRate.trend
     },
     {
       title: "Próximo Horário",
-      value: "14:00",
-      description: "15 visitantes agendados",
+      value: stats.nextBooking.value,
+      description: stats.nextBooking.description,
       icon: Clock,
-      trend: "2 horas restantes"
+      trend: stats.nextBooking.trend
     }
-  ];
+  ] : [];
 
   const quickActions = [
     {
@@ -42,21 +91,21 @@ const Index = () => {
       description: "Registrar uma nova reserva para visita",
       icon: Calendar,
       color: "bg-primary",
-      route: "/booking"
+      route: "/features/booking/Booking-Create"
     },
     {
       title: "Ver Agendamentos",
       description: "Visualizar todos os agendamentos",
       icon: List,
       color: "bg-accent",
-      route: "/bookings-list"
+      route: "/features/booking/Bookings-list"
     },
     {
       title: "Gerenciar Capacidade",
       description: "Configurar limites e exceções",
       icon: Settings,
       color: "bg-secondary",
-      route: "/capacity"
+      route: "/features/booking/Capacity"
     }
   ];
 
@@ -75,24 +124,49 @@ const Index = () => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <stat.icon className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-foreground mb-1">{stat.value}</div>
-                <p className="text-xs text-muted-foreground mb-2">{stat.description}</p>
-                <div className="flex items-center gap-1 text-xs text-primary">
-                  <BarChart3 className="h-3 w-3" />
-                  {stat.trend}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {loading ? (
+            // Loading skeleton
+            Array.from({ length: 4 }).map((_, index) => (
+              <Card key={index} className="animate-pulse">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <div className="h-4 w-24 bg-muted rounded"></div>
+                  <div className="h-4 w-4 bg-muted rounded"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 w-16 bg-muted rounded mb-2"></div>
+                  <div className="h-3 w-32 bg-muted rounded mb-2"></div>
+                  <div className="h-3 w-20 bg-muted rounded"></div>
+                </CardContent>
+              </Card>
+            ))
+          ) : error ? (
+            <div className="col-span-full">
+              <Card className="border-destructive">
+                <CardContent className="pt-6">
+                  <p className="text-destructive text-center">{error}</p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            statsConfig.map((stat, index) => (
+              <Card key={index} className="hover:shadow-lg transition-shadow">
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <stat.icon className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-foreground mb-1">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground mb-2">{stat.description}</p>
+                  <div className="flex items-center gap-1 text-xs text-primary">
+                    <BarChart3 className="h-3 w-3" />
+                    {stat.trend}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
         {/* Quick Actions */}
