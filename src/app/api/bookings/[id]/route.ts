@@ -139,3 +139,63 @@ export async function PATCH(
     );
   }
 }
+
+// DELETE /api/bookings/[id]
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { id } = await params;
+
+    // Buscar o booking antes de deletar para restaurar a capacidade
+    const booking = await prisma.booking.findUnique({
+      where: { id },
+      include: { timeSlot: true },
+    });
+
+    if (!booking) {
+      return NextResponse.json(
+        { success: false, message: "Booking not found" },
+        { status: 404 }
+      );
+    }
+
+    // Usar transação para deletar e restaurar capacidade
+    await prisma.$transaction(async (tx) => {
+      // Deletar o booking
+      await tx.booking.delete({
+        where: { id },
+      });
+
+      // Restaurar a capacidade do slot (apenas adultos)
+      await tx.timeSlot.update({
+        where: { id: booking.timeSlotId },
+        data: {
+          availableCapacity: {
+            increment: booking.adults,
+          },
+        },
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Booking deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting booking:", error);
+    return NextResponse.json(
+      { success: false, message: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

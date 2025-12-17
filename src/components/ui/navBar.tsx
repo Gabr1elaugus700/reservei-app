@@ -43,10 +43,7 @@ export function NavBar() {
               <Settings className="h-4 w-4 mr-2" />
               Configurações
             </Button>
-            <Button onClick={() => redirect("/booking")} size="sm">
-              <Calendar className="h-4 w-4 mr-2" />
-              Novo Agendamento
-            </Button>
+            
             <form action={signOutAction}>
               <Button variant="outline" size="sm" type="submit">
                 Sair

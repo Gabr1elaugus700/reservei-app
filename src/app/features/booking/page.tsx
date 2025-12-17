@@ -169,58 +169,9 @@ const Index = () => {
           )}
         </div>
 
-        {/* Quick Actions */}
-        <div className="mb-8">
-          <h3 className="text-xl font-bold text-foreground mb-4">Ações Rápidas</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {quickActions.map((action, index) => (
-              <Card 
-                key={index}
-                className="cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02] group"
-                onClick={() => {}}
-              >
-                <CardHeader>
-                  <div className={`w-12 h-12 rounded-lg ${action.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                    <action.icon className="h-6 w-6 text-primary-foreground" />
-                  </div>
-                  <CardTitle className="text-lg">{action.title}</CardTitle>
-                  <CardDescription>{action.description}</CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-        </div>
+      
 
-        {/* Info Banner */}
-        {/* <Card className="bg-linear-to-r from-primary/10 via-primary/5 to-secondary/10 border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-xl">Sistema de Gestão Completo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground mb-4">
-              Gerencie todas as suas reservas de forma simples e eficiente. Configure capacidades, 
-              adicione exceções para datas especiais e mantenha controle total.
-            </p>
-            <div className="flex flex-wrap gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary"></div>
-                <span className="text-sm text-foreground">Calendário interativo</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary"></div>
-                <span className="text-sm text-foreground">Confirmação via WhatsApp</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary"></div>
-                <span className="text-sm text-foreground">Gestão de capacidade</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary"></div>
-                <span className="text-sm text-foreground">Relatórios em tempo real</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card> */}
+        
       </main>
     </div>
   );

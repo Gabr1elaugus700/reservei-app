@@ -35,6 +35,7 @@ export function useBookings(initialDate: Date = new Date()) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalDayRevenue, setTotalDayRevenue] = useState(0);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     loadBookingsAndSlots();
@@ -93,12 +94,30 @@ export function useBookings(initialDate: Date = new Date()) {
       setSlotGroups(grouped);
       setBookings(bookingsData);
       setTotalDayRevenue(dayRevenue);
+
+      // Se for o carregamento inicial e não houver slots, buscar próximo dia com slots
+      if (isInitialLoad && slots.length === 0) {
+        setIsInitialLoad(false);
+        const nextDate = await findNextDayWithSlots("forward");
+        if (nextDate) {
+          setCurrentDate(nextDate);
+        } else {
+          // Tentar para trás se não encontrar para frente
+          const prevDate = await findNextDayWithSlots("backward");
+          if (prevDate) {
+            setCurrentDate(prevDate);
+          }
+        }
+      } else {
+        setIsInitialLoad(false);
+      }
     } catch (err) {
       console.error("Error loading bookings and slots:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
       setSlotGroups([]);
       setBookings([]);
       setTotalDayRevenue(0);
+      setIsInitialLoad(false);
     } finally {
       setLoading(false);
     }
@@ -128,6 +147,27 @@ export function useBookings(initialDate: Date = new Date()) {
       return result.data;
     } catch (err) {
       console.error("Error updating booking:", err);
+      throw err;
+    }
+  };
+
+  const deleteBooking = async (bookingId: string) => {
+    try {
+      const response = await fetch(`/api/bookings/${bookingId}`, {
+        method: "DELETE",
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Error deleting booking");
+      }
+
+      // Recarregar os dados
+      await loadBookingsAndSlots();
+      return result;
+    } catch (err) {
+      console.error("Error deleting booking:", err);
       throw err;
     }
   };
@@ -193,6 +233,7 @@ export function useBookings(initialDate: Date = new Date()) {
     goToToday,
     goToDate,
     updateBooking,
+    deleteBooking,
     refreshData: loadBookingsAndSlots,
   };
 }

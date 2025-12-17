@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Loader2, Check, Edit2, X, DollarSign, Plus } from "lucide-react";
+import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Loader2, Check, Edit2, X, DollarSign, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBookings } from "@/hooks/bookingsHook";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ const BookingsList = () => {
     nextDay,
     goToToday,
     updateBooking,
+    deleteBooking,
     refreshData,
   } = useBookings();
 
@@ -89,6 +90,18 @@ const BookingsList = () => {
       await updateBooking(bookingId, { status: "COMPLETED" });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erro ao confirmar visita");
+    }
+  };
+
+  const handleDelete = async (bookingId: string, customerName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o agendamento de ${customerName}?`)) {
+      return;
+    }
+
+    try {
+      await deleteBooking(bookingId);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Erro ao excluir agendamento");
     }
   };
 
@@ -351,6 +364,15 @@ const BookingsList = () => {
                                       Confirmar
                                     </Button>
                                   )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDelete(booking.id, booking.name)}
+                                    className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    Excluir
+                                  </Button>
                                 </>
                               )}
                             </div>
