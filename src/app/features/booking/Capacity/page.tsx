@@ -412,7 +412,7 @@ export default function CapacityPage() {
               <div className="p-3 bg-white rounded border border-orange-200">
                 <p className="text-sm text-gray-600">
                   💡 <strong>Como usar:</strong> Selecione uma data e clique em
-                  "Buscar" para visualizar e editar a configuração daquele dia
+                  &quot;Buscar&quot; para visualizar e editar a configuração daquele dia
                   específico ou inativar em caso de feriado.
                 </p>
               </div>
@@ -469,8 +469,7 @@ export default function CapacityPage() {
                       </div>
                       <div className="text-sm text-yellow-700">
                         Deseja criar uma configuração específica para este dia?
-                        Configure os horários e capacidade abaixo e clique em
-                        "Criar Configuração".
+                        Configure os horários e capacidade abaixo e clique em &quot;Criar Configuração&quot;.
                       </div>
                     </div>
                   </div>

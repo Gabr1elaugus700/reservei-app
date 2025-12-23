@@ -20,35 +20,35 @@ export default function SignIn() {
     <div className="flex flex-col items-center justify-center h-screen">
       <Card className="max-w-md">
         <CardHeader>
-          <CardTitle className="text-lg md:text-xl">Sign In</CardTitle>
+          <CardTitle className="text-lg md:text-xl">Entrar</CardTitle>
           <CardDescription className="text-xs md:text-sm">
-            Enter your email below to login to your account
+            Digite seu e-mail abaixo para entrar na sua conta
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
             <form action={formAction}>
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">E-mail</Label>
                 <Input
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="m@example.com"
+                  placeholder="exemplo@email.com"
                   required
                 />
               </div>
 
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Senha</Label>
                 </div>
 
                 <Input
                   id="password"
                   name="password"
                   type="password"
-                  placeholder="password"
+                  placeholder="senha"
                   autoComplete="current-password"
                   required
                 />

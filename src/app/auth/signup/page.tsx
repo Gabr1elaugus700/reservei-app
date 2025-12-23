@@ -17,34 +17,34 @@ export default function SignUpPage() {
   return (
     <Card className="z-50 rounded-md rounded-t-none max-w-md">
       <CardHeader>
-        <CardTitle className="text-lg md:text-xl">Sign Up</CardTitle>
+        <CardTitle className="text-lg md:text-xl">Registrar</CardTitle>
         <CardDescription className="text-xs md:text-sm">
-          Enter your information to create an account
+          Insira suas informações para criar uma conta
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-6">
           <form action={signUpAction}>
             <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Nome</Label>
               <Input
                 name="name"
-                placeholder="Max"
+                placeholder="Seu nome"
                 required
               />
             </div>
 
             <div className="grid gap-2 mt-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">E-mail</Label>
               <Input
                 name="email"
                 type="email"
-                placeholder="m@example.com"
+                placeholder="exemplo@email.com"
                 
               />
             </div>
             <div className="grid gap-2 mt-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Senha</Label>
               <Input
                 name="password"
                 type="password"
@@ -63,7 +63,7 @@ export default function SignUpPage() {
 						</div> */}
 
             <Button type="submit">
-              Create an account
+              Criar conta
             </Button>
           </form>
         </div>

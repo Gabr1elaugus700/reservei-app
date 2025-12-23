@@ -118,18 +118,85 @@ const BookingsList = () => {
   };
 
   const totalBookings = slotGroups.reduce((sum, group) => sum + group.bookings.length, 0);
+  
+  // Calcular totais de visitantes
+  const totalVisitors = slotGroups.reduce((sum, group) => {
+    return sum + group.bookings.reduce((bookingSum, booking) => {
+      return bookingSum + booking.adults + booking.children;
+    }, 0);
+  }, 0);
+
+  const totalAdults = slotGroups.reduce((sum, group) => {
+    return sum + group.bookings.reduce((bookingSum, booking) => {
+      return bookingSum + booking.adults;
+    }, 0);
+  }, 0);
+
+  const totalChildren = slotGroups.reduce((sum, group) => {
+    return sum + group.bookings.reduce((bookingSum, booking) => {
+      return bookingSum + booking.children;
+    }, 0);
+  }, 0);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1">
         {/* Header com Faturamento Total */}
-        <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-6 mb-6 shadow-lg text-white">
+        <div className="bg-green-600 rounded-2xl p-6 mb-6 shadow-lg text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm opacity-90 mb-1">Faturamento Total do Dia</p>
               <h1 className="text-4xl font-bold">{formatCurrency(totalDayRevenue)}</h1>
             </div>
             <DollarSign className="h-16 w-16 opacity-20" />
+          </div>
+        </div>
+
+        {/* Cards de Estatísticas de Visitantes */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {/* Total de Visitantes */}
+          <div className="bg-card rounded-xl p-5 shadow-sm border border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total de Visitantes</p>
+                <h2 className="text-3xl font-bold text-primary">{totalVisitors}</h2>
+              </div>
+              <div className="bg-primary/10 rounded-full p-3">
+                <svg className="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Total de Adultos */}
+          <div className="bg-card rounded-xl p-5 shadow-sm border border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total de Adultos</p>
+                <h2 className="text-3xl font-bold text-blue-600">{totalAdults}</h2>
+              </div>
+              <div className="bg-blue-100 rounded-full p-3">
+                <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          {/* Total de Crianças */}
+          <div className="bg-card rounded-xl p-5 shadow-sm border border-border">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total de Crianças</p>
+                <h2 className="text-3xl font-bold text-purple-600">{totalChildren}</h2>
+              </div>
+              <div className="bg-purple-100 rounded-full p-3">
+                <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
 
