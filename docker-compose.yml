@@ -1,16 +1,124 @@
 version: "3.8"
+
 services:
+  # ======================================
+  # PostgreSQL Database
+  # ======================================
   db:
     image: postgres:16
     container_name: reservei_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: reservei
-      POSTGRES_PASSWORD: reservei
-      POSTGRES_DB: reservei
+      POSTGRES_USER: ${POSTGRES_USER:-reservei}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reservei}
+      POSTGRES_DB: ${POSTGRES_DB:-reservei}
     ports:
-      - "5438:5432"   # host 5438 -> container 5432
+      - "${POSTGRES_PORT:-5438}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reservei}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reservei-network
+
+  # ======================================
+  # Redis (opcional - cache)
+  # ======================================
+  redis:
+    image: redis:7-alpine
+    container_name: reservei_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - reservei-network
+
+  # ======================================
+  # RabbitMQ (opcional - filas)
+  # ======================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: reservei_rabbitmq
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - reservei-network
+
+  # ======================================
+  # Next.js Application
+  # ======================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN}
+        NEXT_PUBLIC_ADMIN_SUBDOMAIN: ${NEXT_PUBLIC_ADMIN_SUBDOMAIN}
+        NEXT_PUBLIC_PUBLIC_SUBDOMAIN: ${NEXT_PUBLIC_PUBLIC_SUBDOMAIN}
+    container_name: reservei_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-reservei}:${POSTGRES_PASSWORD:-reservei}@db:5432/${POSTGRES_DB:-reservei}
+      
+      # Auth
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # RabbitMQ
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672
+      
+      # Subdomínios
+      NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN}
+      NEXT_PUBLIC_ADMIN_SUBDOMAIN: ${NEXT_PUBLIC_ADMIN_SUBDOMAIN:-app}
+      NEXT_PUBLIC_PUBLIC_SUBDOMAIN: ${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:-reservas}
+      
+      # Node
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - reservei-network
+    command: sh -c "npx prisma migrate deploy && node server.js"
+
 volumes:
   pgdata:
+  redis-data:
+  rabbitmq-data:
+
+networks:
+  reservei-network:
+    driver: bridge
