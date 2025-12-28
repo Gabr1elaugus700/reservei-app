@@ -18,3 +18,26 @@ services:
       - NEXT_PUBLIC_ADMIN_SUBDOMAIN=${NEXT_PUBLIC_ADMIN_SUBDOMAIN:-app}
       - NEXT_PUBLIC_PUBLIC_SUBDOMAIN=${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:-reservas}
       - NODE_ENV=production
+    labels:
+      - "traefik.enable=true"
+      
+      # Roteamento para reservas.app-reservei.com.br (área pública)
+      - "traefik.http.routers.reservas.rule=Host(`reservas.app-reservei.com.br`)"
+      - "traefik.http.routers.reservas.entrypoints=websecure"
+      - "traefik.http.routers.reservas.tls=true"
+      - "traefik.http.routers.reservas.tls.certresolver=letsencrypt"
+      
+      # Roteamento para app.app-reservei.com.br (área admin)
+      - "traefik.http.routers.app-admin.rule=Host(`app.app-reservei.com.br`)"
+      - "traefik.http.routers.app-admin.entrypoints=websecure"
+      - "traefik.http.routers.app-admin.tls=true"
+      - "traefik.http.routers.app-admin.tls.certresolver=letsencrypt"
+      
+      # Serviço
+      - "traefik.http.services.app-reservei.loadbalancer.server.port=3000"
+    networks:
+      - traefik-public
+
+networks:
+  traefik-public:
+    external: true
