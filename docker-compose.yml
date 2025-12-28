@@ -36,8 +36,8 @@ services:
       # Serviço
       - "traefik.http.services.app-reservei.loadbalancer.server.port=3000"
     networks:
-      - traefik-public
+      - Rede_garbai
 
 networks:
-  traefik-public:
+  Rede_garbai:
     external: true
