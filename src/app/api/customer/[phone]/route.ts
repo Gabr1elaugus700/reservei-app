@@ -7,23 +7,22 @@ export async function GET(
   { params }: { params: Promise<{ phone: string }> }
 ) {
  const { phone } = await params;
- const whatsapp = phone;
 
-  if (!whatsapp) {
+  if (!phone) {
     return NextResponse.json(
-      { error: "WhatsApp é obrigatório" },
+      { error: "Telefone é obrigatório" },
       { status: 400 }
     );
   }
 
   try {
-    // Buscar cliente no banco de dados pelo WhatsApp
-    const customer = await prisma.customer.findUnique({
-      where: { whatsapp },
+    // Buscar cliente no banco de dados pelo telefone
+    const customer = await prisma.customer.findFirst({
+      where: { phone },
       select: {
         id: true,
         name: true,
-        whatsapp: true,
+        phone: true,
         email: true,
         createdAt: true,
       },
@@ -35,7 +34,7 @@ export async function GET(
         name: customer.name,
         id: customer.id,
         email: customer.email,
-        whatsapp: customer.whatsapp,
+        whatsapp: customer.phone, // Retorna como whatsapp para compatibilidade com frontend
       });
     }
 
@@ -48,5 +47,6 @@ export async function GET(
       { error: "Erro ao buscar cliente" },
       { status: 500 }
     );
+  }
   }
 }
