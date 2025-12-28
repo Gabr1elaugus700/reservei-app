@@ -1,0 +1,23 @@
+http:
+  routers:
+    app-reservei-public:
+      rule: "Host(`reservas.app-reservei.com.br`)"
+      service: app-reservei
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+    
+    app-reservei-admin:
+      rule: "Host(`app.app-reservei.com.br`)"
+      service: app-reservei
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+  
+  services:
+    app-reservei:
+      loadBalancer:
+        servers:
+          - url: "http://SEU_IP_DA_VPS:3005"
