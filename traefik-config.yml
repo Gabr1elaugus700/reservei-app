@@ -1,23 +1,47 @@
-http:
-  routers:
-    app-reservei-public:
-      rule: "Host(`reservas.app-reservei.com.br`)"
-      service: app-reservei
-      entryPoints:
-        - websecure
-      tls:
-        certResolver: letsencrypt
-    
-    app-reservei-admin:
-      rule: "Host(`app.app-reservei.com.br`)"
-      service: app-reservei
-      entryPoints:
-        - websecure
-      tls:
-        certResolver: letsencrypt
-  
-  services:
-    app-reservei:
-      loadBalancer:
-        servers:
-          - url: "http://SEU_IP_DA_VPS:3005"
+version: "3.7"
+services:
+  app-reservei:
+    image: app-reservei:latest
+    environment:
+      - DATABASE_URL=postgresql://app_reservei_user:Born_7oflyBLO@45.55.56.141:5432/app_reservei
+      - BETTER_AUTH_SECRET=SEU_SECRET_AQUI
+      - BETTER_AUTH_URL=https://reservas.app-reservei.com.br
+      - NEXT_PUBLIC_BASE_DOMAIN=app-reservei.com.br
+      - NEXT_PUBLIC_ADMIN_SUBDOMAIN=app
+      - NEXT_PUBLIC_PUBLIC_SUBDOMAIN=reservas
+      - NODE_ENV=production
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        
+        # Domínio RAIZ - app-reservei.com.br
+        - "traefik.http.routers.root-app.rule=Host(`app-reservei.com.br`)"
+        - "traefik.http.routers.root-app.entrypoints=websecure"
+        - "traefik.http.routers.root-app.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.root-app.service=app-reservei-service"
+        
+        # Roteador para reservas.app-reservei.com.br
+        - "traefik.http.routers.reservas-app.rule=Host(`reservas.app-reservei.com.br`)"
+        - "traefik.http.routers.reservas-app.entrypoints=websecure"
+        - "traefik.http.routers.reservas-app.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.reservas-app.service=app-reservei-service"
+        
+        # Roteador para app.app-reservei.com.br
+        - "traefik.http.routers.admin-app.rule=Host(`app.app-reservei.com.br`)"
+        - "traefik.http.routers.admin-app.entrypoints=websecure"
+        - "traefik.http.routers.admin-app.tls.certresolver=letsencryptresolver"
+        - "traefik.http.routers.admin-app.service=app-reservei-service"
+        
+        # Serviço
+        - "traefik.http.services.app-reservei-service.loadbalancer.server.port=3000"
+        - "traefik.docker.network=Rede_garbai"
+    networks:
+      - Rede_garbai
+
+networks:
+  Rede_garbai:
+    external: true
+    name: Rede_garbai
