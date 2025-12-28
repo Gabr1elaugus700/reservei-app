@@ -6,7 +6,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ phone: string }> }
 ) {
- const { phone } = await params;
+  const { phone } = await params;
 
   if (!phone) {
     return NextResponse.json(
@@ -47,6 +47,5 @@ export async function GET(
       { error: "Erro ao buscar cliente" },
       { status: 500 }
     );
-  }
   }
 }
