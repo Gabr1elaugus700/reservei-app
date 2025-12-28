@@ -5,7 +5,7 @@ import { availabilityConfigSchema } from "@/lib/validations/availability-config.
 import { syncTimeSlotsForConfig } from "@/lib/timeslot-service";
 
 // GET /api/availability-configs/[id] - Get availability config by ID
-export async function GET( request: Request, { params }: { params: { id: string } } ) {
+export async function GET( request: Request, { params }: { params: Promise<{ id: string }> } ) {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -15,8 +15,9 @@ export async function GET( request: Request, { params }: { params: { id: string 
             );
         }
 
+        const { id } = await params;
         const config = await prisma.availabilityConfig.findUnique({
-            where: { id: params.id },
+            where: { id },
         });
 
         if (!config) {
@@ -43,7 +44,7 @@ export async function GET( request: Request, { params }: { params: { id: string 
 }
 
 // DELETE /api/availability-configs/[id] - Delete availability config by ID
-export async function DELETE( request: Request, { params }: { params: { id: string } } ) {
+export async function DELETE( request: Request, { params }: { params: Promise<{ id: string }> } ) {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -53,9 +54,10 @@ export async function DELETE( request: Request, { params }: { params: { id: stri
             );
         }
 
+        const { id } = await params;
         // Delete config (cascades to TimeSlots via Prisma schema)
         const config = await prisma.availabilityConfig.delete({
-            where: { id: params.id },
+            where: { id },
         });
 
         if (!config) {
@@ -87,7 +89,7 @@ export async function DELETE( request: Request, { params }: { params: { id: stri
 
 
 // PUT /api/availability-configs/[id] - Update availability config by ID
-export async function PUT( request: Request, { params }: { params: { id: string } } ) {
+export async function PUT( request: Request, { params }: { params: Promise<{ id: string }> } ) {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -97,18 +99,19 @@ export async function PUT( request: Request, { params }: { params: { id: string 
             );
         }
 
+        const { id } = await params;
         const data = await request.json();
         const parsedData = availabilityConfigSchema.partial().parse(data);
 
         // Update config and regenerate time slots in a transaction
         const result = await prisma.$transaction(async (tx) => {
             const updatedConfig = await tx.availabilityConfig.update({
-                where: { id: params.id },
+                where: { id },
                 data: parsedData,
             });
 
             // Regenerate time slots for this config
-            await syncTimeSlotsForConfig(params.id, tx);
+            await syncTimeSlotsForConfig(id, tx);
 
             return updatedConfig;
         });
