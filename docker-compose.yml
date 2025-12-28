@@ -1,23 +1,8 @@
 services:
   web:
-    build:
-      context: .
-      args:
-        NEXT_PUBLIC_BASE_DOMAIN: "${NEXT_PUBLIC_BASE_DOMAIN}"
-        NEXT_PUBLIC_ADMIN_SUBDOMAIN: "${NEXT_PUBLIC_ADMIN_SUBDOMAIN}"
-        NEXT_PUBLIC_PUBLIC_SUBDOMAIN: "${NEXT_PUBLIC_PUBLIC_SUBDOMAIN}"
-
+    build: .
     restart: unless-stopped
-
-    # Se você vai usar Nginx na VPS, recomendo bind apenas local:
     ports:
       - "127.0.0.1:3005:3000"
-
-    # Carrega variáveis do .env (runtime)
     env_file:
       - .env.production
-
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      HOSTNAME: "0.0.0.0"
