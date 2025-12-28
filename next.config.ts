@@ -6,19 +6,8 @@ const nextConfig: NextConfig = {
   // Configuração necessária para Docker (standalone output)
   output: 'standalone',
   
-  // Ignorar arquivos não usados no build
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        '@lexical/react': false,
-        '@lexical/link': false,
-        '@lexical/utils': false,
-        'lexical': false,
-      };
-    }
-    return config;
-  },
+  // Turbopack config (vazio para silenciar warning)
+  turbopack: {},
 
   async rewrites() {
     const rewrites = [
