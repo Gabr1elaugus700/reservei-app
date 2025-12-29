@@ -1,4 +1,16 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reservei}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reservei}
+      POSTGRES_DB: ${POSTGRES_DB:-reservei}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
   web:
     build:
       context: .
@@ -10,11 +22,22 @@ services:
     restart: unless-stopped
     ports:
       - "3005:3000"
+    depends_on:
+      - postgres
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://reservei:reservei@postgres:5432/reservei}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-https://reservas.app-reservei.com.br}
       - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN:-app-reservei.com.br}
       - NEXT_PUBLIC_ADMIN_SUBDOMAIN=${NEXT_PUBLIC_ADMIN_SUBDOMAIN:-app}
       - NEXT_PUBLIC_PUBLIC_SUBDOMAIN=${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:-reservas}
       - NODE_ENV=production
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
