@@ -1,50 +1,45 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { hash } from "bcrypt";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Iniciando seed...");
+  console.log("🌱 Criando usuário administrador...");
 
-  // Criar usuário administrador padrão
-  const adminEmail = "admin@admin.com";
-  const adminName = "Administrador";
-  const adminPassword = "admin123";
+  const adminEmail = "admin@reservei.com";
+  const adminPassword = "Admin@123";
 
   const existing = await prisma.user.findUnique({
     where: { email: adminEmail },
   });
 
-  if (!existing) {
-    const passwordHash = await bcrypt.hash(adminPassword, 10);
-    
-    const user = await prisma.user.create({
-      data: {
-        email: adminEmail,
-        name: adminName,
-        emailVerified: true,
-      },
-    });
-
-    await prisma.account.create({
-      data: {
-        userId: user.id,
-        providerId: "credential",
-        accountId: adminEmail,
-        password: passwordHash,
-      },
-    });
-
-    console.log("✅ Usuário administrador criado com sucesso!");
-    console.log(`   Email: ${adminEmail}`);
-    console.log(`   Senha: ${adminPassword}`);
-    console.log("   ⚠️  IMPORTANTE: Altere a senha após o primeiro login!");
-  } else {
-    console.log("ℹ️  Usuário administrador já existe");
-    console.log(`   Email: ${adminEmail}`);
+  if (existing) {
+    console.log("ℹ️  Usuário admin já existe");
+    return;
   }
 
-  console.log("✅ Seed concluído!");
+  const passwordHash = await hash(adminPassword, 10);
+  
+  const user = await prisma.user.create({
+    data: {
+      email: adminEmail,
+      name: "Administrador",
+      emailVerified: true,
+    },
+  });
+
+  await prisma.account.create({
+    data: {
+      userId: user.id,
+      providerId: "credential",
+      accountId: adminEmail,
+      password: passwordHash,
+    },
+  });
+
+  console.log("✅ Usuário admin criado!");
+  console.log(`   📧 Email: ${adminEmail}`);
+  console.log(`   🔑 Senha: ${adminPassword}`);
 }
 
 main()
