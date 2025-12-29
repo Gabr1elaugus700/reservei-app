@@ -31,7 +31,17 @@ echo ""
 
 # 6. Verifica se existe algum usuário
 echo "👥 Total de usuários cadastrados:"
-docker compose exec postgres psql -U reservei -d reservei -c 'SELECT COUNT(*) FROM "User";'
+docker compose exec postgres psql -U reservei -d reservei -c 'SELECT COUNT(*) FROM "user";'
+echo ""
+
+# 7. Verifica bookings
+echo "📅 Total de reservas cadastradas:"
+docker compose exec postgres psql -U reservei -d reservei -c 'SELECT COUNT(*) FROM "Booking";'
+echo ""
+
+# 8. Verifica timeslots
+echo "⏰ Total de timeslots configurados:"
+docker compose exec postgres psql -U reservei -d reservei -c 'SELECT COUNT(*) FROM "TimeSlot";'
 echo ""
 
 echo "✅ Verificação completa!"
