@@ -2,9 +2,9 @@
 set -e
 
 echo "⏳ Aguardando PostgreSQL..."
-until echo 'SELECT 1;' | npx prisma db execute --stdin 2>/dev/null; do
+until npx prisma db push --accept-data-loss --skip-generate 2>&1 | grep -q "already in sync\|applied\|created"; do
   echo "   PostgreSQL ainda não está pronto - aguardando..."
-  sleep 2
+  sleep 3
 done
 
 echo "✅ PostgreSQL conectado!"
