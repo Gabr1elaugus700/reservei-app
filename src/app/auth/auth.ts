@@ -15,6 +15,7 @@ export async function signUpAction(formData: FormData) {
         password,
         name,
       },
+      headers: await headers(),
     });
   } catch (error) {
     throw new Error(
@@ -38,6 +39,7 @@ export async function signInAction(
         email,
         password,
       },
+      headers: await headers(),
     });
   } catch (error) {
     return {
