@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Buscar slots para a data específica
-      const allTimeSlots = await prisma.timeSlot.findMany({
+    // Buscar todos os slots para a data específica
+    const timeSlots = await prisma.timeSlot.findMany({
       where: {
         date: requestedDate,
       },
@@ -32,8 +32,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Filtrar apenas slots disponíveis
-    const timeSlots = allTimeSlots.filter((slot) => slot.availableCapacity > 0);    return NextResponse.json({
+    return NextResponse.json({
       success: true,
       data: timeSlots,
     });

@@ -102,12 +102,18 @@ export async function PUT( request: Request, { params }: { params: Promise<{ id:
         const { id } = await params;
         const data = await request.json();
         const parsedData = availabilityConfigSchema.partial().parse(data);
+        
+        // Converter date de string para Date após validação, se existir
+        const dataToUpdate = {
+            ...parsedData,
+            date: parsedData.date ? new Date(parsedData.date + 'T00:00:00.000Z') : undefined
+        };
 
         // Update config and regenerate time slots in a transaction
         const result = await prisma.$transaction(async (tx) => {
             const updatedConfig = await tx.availabilityConfig.update({
                 where: { id },
-                data: parsedData,
+                data: dataToUpdate,
             });
 
             // Regenerate time slots for this config

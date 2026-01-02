@@ -42,6 +42,9 @@ export async function PATCH(
       const newCapacity = newAdults;
       const difference = newCapacity - oldCapacity;
 
+      // Recalcular o preço total baseado nos novos valores
+      const newTotalPrice = newAdults * 10 + newChildren * 5;
+
       // Usar transação para garantir atomicidade
       const result = await prisma.$transaction(async (tx) => {
         // Verificar se há capacidade suficiente
@@ -51,12 +54,13 @@ export async function PATCH(
           );
         }
 
-        // Atualizar o booking
+        // Atualizar o booking com o novo preço
         const updatedBooking = await tx.booking.update({
           where: { id },
           data: {
             adults: newAdults,
             children: newChildren,
+            totalPrice: newTotalPrice,
             status: status ?? currentBooking.status,
           },
           include: {
@@ -91,6 +95,7 @@ export async function PATCH(
           status: result.status,
           date: result.date,
           time: result.time,
+          totalPrice: result.totalPrice ? Number(result.totalPrice) : 0,
         },
       });
     } else if (status !== undefined) {

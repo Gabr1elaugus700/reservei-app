@@ -70,20 +70,24 @@ export function useBookings(initialDate: Date = new Date()) {
       const bookingsData: Booking[] = bookingsResult.data;
 
       // Agrupar bookings por slot
-      const grouped = slots.map((slot) => {
-        const slotBookings = bookingsData.filter(
-          (booking) => booking.time === slot.startTime
-        );
-        const revenue = slotBookings.reduce(
-          (sum, booking) => sum + (booking.totalPrice || 0),
-          0
-        );
-        return {
-          slot,
-          bookings: slotBookings,
-          totalRevenue: revenue,
-        };
-      });
+      // IMPORTANTE: Mostrar todos os slots que têm agendamentos, mesmo que estejam cheios
+      const grouped = slots
+        .map((slot) => {
+          const slotBookings = bookingsData.filter(
+            (booking) => booking.time === slot.startTime
+          );
+          const revenue = slotBookings.reduce(
+            (sum, booking) => sum + (booking.totalPrice || 0),
+            0
+          );
+          return {
+            slot,
+            bookings: slotBookings,
+            totalRevenue: revenue,
+          };
+        })
+        // Filtrar apenas slots que têm agendamentos OU que têm capacidade disponível
+        .filter((group) => group.bookings.length > 0 || group.slot.availableCapacity > 0);
 
       // Calcular faturamento total do dia
       const dayRevenue = grouped.reduce(

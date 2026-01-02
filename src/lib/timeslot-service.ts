@@ -155,7 +155,7 @@ export async function generateSlotsForPeriod(
 
 /**
  * Cria ou atualiza TimeSlots para uma configuração específica
- * Remove slots antigos e cria novos baseados na config atual
+ * Mantém slots com agendamentos existentes e atualiza apenas slots vazios
  */
 export async function syncTimeSlotsForConfig(
   configId: string,
@@ -172,11 +172,37 @@ export async function syncTimeSlotsForConfig(
     throw new Error(`AvailabilityConfig ${configId} não encontrada`);
   }
 
-  // Se não está ativo, remover todos os slots e retornar
+  // Se não está ativo, desativar todos os slots sem agendamentos
   if (!config.isActive) {
-    await db.timeSlot.deleteMany({
-      where: { availabilityConfigId: configId },
+    // Buscar slots com agendamentos
+    const slotsWithBookings = await db.timeSlot.findMany({
+      where: { 
+        availabilityConfigId: configId,
+        bookings: {
+          some: {}
+        }
+      },
+      select: { id: true }
     });
+
+    const slotIdsWithBookings = slotsWithBookings.map(s => s.id);
+
+    // Deletar apenas slots SEM agendamentos
+    await db.timeSlot.deleteMany({
+      where: { 
+        availabilityConfigId: configId,
+        id: { notIn: slotIdsWithBookings }
+      },
+    });
+
+    // Desativar slots COM agendamentos
+    if (slotIdsWithBookings.length > 0) {
+      await db.timeSlot.updateMany({
+        where: { id: { in: slotIdsWithBookings } },
+        data: { isAvailable: false }
+      });
+    }
+
     return [];
   }
 
@@ -194,14 +220,104 @@ export async function syncTimeSlotsForConfig(
     breakPeriods,
   });
 
-  // Remover slots antigos
-  await db.timeSlot.deleteMany({
+  // Buscar todos os slots existentes para esta config
+  const existingSlots = await db.timeSlot.findMany({
     where: { availabilityConfigId: configId },
+    include: {
+      bookings: true
+    }
   });
 
-  // Criar novos slots
+  // Separar slots com e sem agendamentos
+  const slotsWithBookings = existingSlots.filter(s => s.bookings.length > 0);
+  const slotsWithoutBookings = existingSlots.filter(s => s.bookings.length === 0);
+
+  // IDs dos slots com agendamentos (para preservar)
+  const slotIdsWithBookings = slotsWithBookings.map(s => s.id);
+
+  // Horários dos slots que devem existir (gerados pela configuração)
+  const targetSlotTimes = slots.map(s => s.startTime);
+
+  // Horários dos slots existentes COM agendamentos
+  const existingBookedSlotTimes = slotsWithBookings.map(s => s.startTime);
+
+  // Remover apenas slots VAZIOS que não estão mais na configuração
+  const slotIdsToDelete = slotsWithoutBookings
+    .filter(s => !targetSlotTimes.includes(s.startTime))
+    .map(s => s.id);
+
+  if (slotIdsToDelete.length > 0) {
+    await db.timeSlot.deleteMany({
+      where: { id: { in: slotIdsToDelete } }
+    });
+  }
+
+  // Atualizar slots com agendamentos que ainda estão na configuração
+  const slotsToUpdate = slotsWithBookings.filter(s => 
+    targetSlotTimes.includes(s.startTime)
+  );
+
+  for (const slot of slotsToUpdate) {
+    // Encontrar a configuração do slot atualizado
+    const targetSlot = slots.find(s => s.startTime === slot.startTime);
+    if (!targetSlot) continue;
+
+    // Para slots COM agendamentos: só atualiza se a nova capacidade for MAIOR
+    const shouldUpdateCapacity = config.capacityPerSlot > slot.totalCapacity;
+    
+    if (shouldUpdateCapacity) {
+      const usedCapacity = slot.totalCapacity - slot.availableCapacity;
+      const newAvailableCapacity = Math.max(0, config.capacityPerSlot - usedCapacity);
+
+      await db.timeSlot.update({
+        where: { id: slot.id },
+        data: {
+          endTime: targetSlot.endTime,
+          totalCapacity: config.capacityPerSlot,
+          availableCapacity: newAvailableCapacity,
+          isAvailable: true,
+        }
+      });
+    } else {
+      // Se não atualizar capacidade, pelo menos atualiza endTime e reativa
+      await db.timeSlot.update({
+        where: { id: slot.id },
+        data: {
+          endTime: targetSlot.endTime,
+          isAvailable: true,
+        }
+      });
+    }
+  }
+
+  // Atualizar slots SEM agendamentos que ainda estão na configuração
+  const slotsWithoutBookingsToUpdate = slotsWithoutBookings.filter(s => 
+    targetSlotTimes.includes(s.startTime)
+  );
+
+  for (const slot of slotsWithoutBookingsToUpdate) {
+    const targetSlot = slots.find(s => s.startTime === slot.startTime);
+    if (!targetSlot) continue;
+
+    // Para slots SEM agendamentos: SEMPRE atualiza para nova capacidade
+    await db.timeSlot.update({
+      where: { id: slot.id },
+      data: {
+        endTime: targetSlot.endTime,
+        totalCapacity: config.capacityPerSlot,
+        availableCapacity: config.capacityPerSlot,
+        isAvailable: true,
+      }
+    });
+  }
+
+  // Criar novos slots para horários que não existem ainda
+  const slotsToCreate = slots.filter(s => 
+    !existingSlots.some(existing => existing.startTime === s.startTime)
+  );
+
   const createdSlots = await Promise.all(
-    slots.map((slot) =>
+    slotsToCreate.map((slot) =>
       db.timeSlot.create({
         data: {
           availabilityConfigId: configId,
@@ -217,7 +333,9 @@ export async function syncTimeSlotsForConfig(
     )
   );
 
-  return createdSlots;
+  console.log(`✅ Sync completo: ${slotsToUpdate.length + slotsWithoutBookingsToUpdate.length} atualizados, ${createdSlots.length} criados, ${slotIdsToDelete.length} removidos (${slotIdsWithBookings.length} preservados com bookings)`);
+
+  return [...slotsToUpdate, ...slotsWithoutBookingsToUpdate, ...createdSlots];
 }
 
 /**
