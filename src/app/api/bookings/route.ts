@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
 
+interface BookingQueryResult {
+  id: string;
+  customer_name: string;
+  customer_phone: string;
+  date: Date;
+  time: string;
+  adults: number;
+  children: number;
+  totalPrice: number | null;
+  status: string;
+  notes: string | null;
+}
+
 // GET /api/bookings/[date]
 export async function GET(request: NextRequest) {
   try {
@@ -23,32 +36,32 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const date = new Date(dateParam);
-    if (isNaN(date.getTime())) {
+    // Validar formato de data
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return NextResponse.json(
-        { success: false, message: "Invalid date format" },
+        { success: false, message: "Invalid date format. Use YYYY-MM-DD" },
         { status: 400 }
       );
     }
 
-    const bookings = await prisma.booking.findMany({
-      where: {
-        date,
-      },
-      include: {
-        customer: true,
-      },
-      orderBy: {
-        time: 'asc',
-      },
-    });
+    // Buscar bookings usando comparação de data sem timezone
+    const bookings = await prisma.$queryRaw<Array<BookingQueryResult>>`
+      SELECT 
+        b.*,
+        c.name as customer_name,
+        c.phone as customer_phone
+      FROM "Booking" b
+      INNER JOIN "Customer" c ON b."customerId" = c.id
+      WHERE b.date::date = ${dateParam}::date
+      ORDER BY b.time ASC
+    `;
 
     return NextResponse.json({
       success: true,
       data: bookings.map((booking) => ({
         id: booking.id,
-        name: booking.customer.name,
-        phone: booking.customer.phone,
+        name: booking.customer_name,
+        phone: booking.customer_phone,
         date: booking.date,
         time: booking.time,
         adults: booking.adults,
@@ -108,7 +121,7 @@ export async function GET(request: NextRequest) {
         const booking = await tx.booking.create({
           data: {
             customerId,
-            date: new Date(date),
+            date: new Date(date + 'T00:00:00.000Z'),
             time,
             adults: adults || 0,
             children: children || 0,

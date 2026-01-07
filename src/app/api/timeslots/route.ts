@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const requestedDate = new Date(dateParam);
-    if (isNaN(requestedDate.getTime())) {
+    // Validar formato de data
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return NextResponse.json(
         { success: false, message: "Invalid date format. Use YYYY-MM-DD" },
         { status: 400 }
@@ -23,14 +23,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Buscar todos os slots para a data específica
-    const timeSlots = await prisma.timeSlot.findMany({
-      where: {
-        date: requestedDate,
-      },
-      orderBy: {
-        startTime: "asc",
-      },
-    });
+    // Usar raw SQL para comparar apenas a parte da data, ignorando timezone
+    const timeSlots = await prisma.$queryRaw`
+      SELECT * FROM "TimeSlot"
+      WHERE date::date = ${dateParam}::date
+      ORDER BY "startTime" ASC
+    `;
 
     return NextResponse.json({
       success: true,

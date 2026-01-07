@@ -102,6 +102,14 @@ export async function generateSlotsForPeriod(
     const currentDate = new Date(today);
     currentDate.setDate(today.getDate() + i);
     
+    // Criar data em UTC para evitar problemas de timezone
+    const utcDate = new Date(Date.UTC(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate(),
+      0, 0, 0, 0
+    ));
+    
     const dayOfWeek = currentDate.getDay(); // 0-6
     
     // Buscar config para esse dia da semana
@@ -130,7 +138,7 @@ export async function generateSlotsForPeriod(
       allSlots.push({
         availabilityConfigId: config.id,
         dayOfWeek,
-        date: currentDate,
+        date: utcDate,
         startTime: slot.startTime,
         endTime: slot.endTime,
         totalCapacity: config.capacityPerSlot,
