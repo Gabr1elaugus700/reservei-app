@@ -28,8 +28,13 @@ export interface SlotWithBookings {
   totalRevenue: number;
 }
 
-export function useBookings(initialDate: Date = new Date()) {
-  const [currentDate, setCurrentDate] = useState(initialDate);
+export function useBookings(initialDate?: Date) {
+  const [currentDate, setCurrentDate] = useState(() => {
+    const date = initialDate || new Date();
+    // Sempre criar com hora zerada (meia-noite local)
+    date.setHours(0, 0, 0, 0);
+    return date;
+  });
   const [slotGroups, setSlotGroups] = useState<SlotWithBookings[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,7 +186,8 @@ export function useBookings(initialDate: Date = new Date()) {
   };
 
   const findNextDayWithSlots = async (direction: "forward" | "backward") => {
-    let testDate = new Date(currentDate);
+    // Criar nova data a partir de currentDate
+    let testDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
     let attempts = 0;
     const maxAttempts = 30; // Evitar loop infinito
 
@@ -226,11 +232,15 @@ export function useBookings(initialDate: Date = new Date()) {
   };
 
   const goToToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    setCurrentDate(today);
   };
 
   const goToDate = (date: Date) => {
-    setCurrentDate(date);
+    const newDate = new Date(date);
+    newDate.setHours(0, 0, 0, 0);
+    setCurrentDate(newDate);
   };
 
   return {
