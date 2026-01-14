@@ -14,13 +14,7 @@ services:
       - app-network
 
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN:-app-reservei.com.br}
-        NEXT_PUBLIC_ADMIN_SUBDOMAIN: ${NEXT_PUBLIC_ADMIN_SUBDOMAIN:-app}
-        NEXT_PUBLIC_PUBLIC_SUBDOMAIN: ${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:-reservas}
+    image: app-reservei:latest
     restart: unless-stopped
     ports:
       - "3005:3000"
