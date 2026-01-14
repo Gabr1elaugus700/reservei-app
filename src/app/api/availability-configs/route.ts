@@ -71,7 +71,10 @@ export async function POST(request: Request) {
     const newConfig = await prisma.availabilityConfig.create({
       data: {
         dayOfWeek: parsedData.dayOfWeek,
-        date: parsedData.date ? new Date(parsedData.date + 'T00:00:00.000Z') : null,
+        date: parsedData.date ? (() => {
+          const [y, m, d] = parsedData.date.split('-').map(Number);
+          return new Date(y, m - 1, d);
+        })() : null,
         startTime: parsedData.startTime,
         endTime: parsedData.endTime,
         slotDurationMinutes: parsedData.slotDurationMinutes,

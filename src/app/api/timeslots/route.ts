@@ -22,13 +22,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Criar data sem timezone: extrair ano, mês, dia e criar Date local
+    const [year, month, day] = dateParam.split('-').map(Number);
+    const requestedDate = new Date(year, month - 1, day);
+
     // Buscar todos os slots para a data específica
-    // Usar raw SQL para comparar apenas a parte da data, ignorando timezone
-    const timeSlots = await prisma.$queryRaw`
-      SELECT * FROM "TimeSlot"
-      WHERE date::date = ${dateParam}::date
-      ORDER BY "startTime" ASC
-    `;
+    const timeSlots = await prisma.timeSlot.findMany({
+      where: {
+        date: requestedDate,
+      },
+      orderBy: {
+        startTime: "asc",
+      },
+    });
 
     return NextResponse.json({
       success: true,

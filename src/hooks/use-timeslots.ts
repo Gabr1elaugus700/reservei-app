@@ -30,7 +30,11 @@ export function useTimeSlots(selectedDate: Date | null) {
       setLoading(true);
       setError(null);
 
-      const dateString = selectedDate.toISOString().split("T")[0];
+      // Formatar data como YYYY-MM-DD sem conversão de timezone
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(selectedDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
       const response = await fetch(`/api/timeslots?date=${dateString}`);
 
       const result = await response.json();

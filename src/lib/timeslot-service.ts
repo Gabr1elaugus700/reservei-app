@@ -102,14 +102,6 @@ export async function generateSlotsForPeriod(
     const currentDate = new Date(today);
     currentDate.setDate(today.getDate() + i);
     
-    // Criar data em UTC para evitar problemas de timezone
-    const utcDate = new Date(Date.UTC(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      currentDate.getDate(),
-      0, 0, 0, 0
-    ));
-    
     const dayOfWeek = currentDate.getDay(); // 0-6
     
     // Buscar config para esse dia da semana
@@ -133,12 +125,12 @@ export async function generateSlotsForPeriod(
       breakPeriods,
     });
     
-    // Criar TimeSlots com a data específica
+    // Criar TimeSlots com a data específica (sem timezone)
     for (const slot of slots) {
       allSlots.push({
         availabilityConfigId: config.id,
         dayOfWeek,
-        date: utcDate,
+        date: new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()),
         startTime: slot.startTime,
         endTime: slot.endTime,
         totalCapacity: config.capacityPerSlot,
@@ -245,9 +237,6 @@ export async function syncTimeSlotsForConfig(
 
   // Horários dos slots que devem existir (gerados pela configuração)
   const targetSlotTimes = slots.map(s => s.startTime);
-
-  // Horários dos slots existentes COM agendamentos
-  const existingBookedSlotTimes = slotsWithBookings.map(s => s.startTime);
 
   // Remover apenas slots VAZIOS que não estão mais na configuração
   const slotIdsToDelete = slotsWithoutBookings

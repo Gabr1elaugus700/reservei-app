@@ -129,7 +129,8 @@ export default function CapacityPage() {
       // Filtrar por data específica
       const configsForDate = allConfigs.filter((config) => {
         if (!config.date) return false;
-        const configDate = new Date(config.date).toISOString().split("T")[0];
+        const date = new Date(config.date);
+        const configDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         return configDate === specificDate;
       });
 

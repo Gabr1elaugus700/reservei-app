@@ -125,7 +125,7 @@ export function NewBookingForm({
         body: JSON.stringify({
           timeSlotId: slotId,
           customerId: finalCustomerId,
-          date: date.toISOString().split("T")[0],
+          date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
           time: slotTime,
           adults: adultsCount,
           children: childrensCount,

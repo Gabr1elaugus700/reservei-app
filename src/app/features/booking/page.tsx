@@ -1,6 +1,6 @@
 'use client'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, Settings, List, Users, Clock, TrendingUp, BarChart3 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calendar, Users, Clock, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface DashboardStats {
@@ -85,30 +85,6 @@ const Index = () => {
     }
   ] : [];
 
-  const quickActions = [
-    {
-      title: "Novo Agendamento",
-      description: "Registrar uma nova reserva para visita",
-      icon: Calendar,
-      color: "bg-primary",
-      route: "/features/booking/Booking-Create"
-    },
-    {
-      title: "Ver Agendamentos",
-      description: "Visualizar todos os agendamentos",
-      icon: List,
-      color: "bg-accent",
-      route: "/features/booking/Bookings-list"
-    },
-    {
-      title: "Gerenciar Capacidade",
-      description: "Configurar limites e exceções",
-      icon: Settings,
-      color: "bg-secondary",
-      route: "/features/booking/Capacity"
-    }
-  ];
-
   return (
     <div className="min-h-screen bg-background">
 
@@ -160,7 +136,7 @@ const Index = () => {
                   <div className="text-3xl font-bold text-foreground mb-1">{stat.value}</div>
                   <p className="text-xs text-muted-foreground mb-2">{stat.description}</p>
                   <div className="flex items-center gap-1 text-xs text-primary">
-                    <BarChart3 className="h-3 w-3" />
+                    <TrendingUp className="h-3 w-3" />
                     {stat.trend}
                   </div>
                 </CardContent>

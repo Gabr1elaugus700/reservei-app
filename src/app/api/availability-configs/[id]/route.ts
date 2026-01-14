@@ -106,7 +106,10 @@ export async function PUT( request: Request, { params }: { params: Promise<{ id:
         // Converter date de string para Date após validação, se existir
         const dataToUpdate = {
             ...parsedData,
-            date: parsedData.date ? new Date(parsedData.date + 'T00:00:00.000Z') : undefined
+            date: parsedData.date ? (() => {
+              const [y, m, d] = parsedData.date.split('-').map(Number);
+              return new Date(y, m - 1, d);
+            })() : undefined
         };
 
         // Update config and regenerate time slots in a transaction

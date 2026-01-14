@@ -2,19 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
 
-interface BookingQueryResult {
-  id: string;
-  customer_name: string;
-  customer_phone: string;
-  date: Date;
-  time: string;
-  adults: number;
-  children: number;
-  totalPrice: number | null;
-  status: string;
-  notes: string | null;
-}
-
 // GET /api/bookings/[date]
 export async function GET(request: NextRequest) {
   try {
@@ -44,24 +31,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Buscar bookings usando comparação de data sem timezone
-    const bookings = await prisma.$queryRaw<Array<BookingQueryResult>>`
-      SELECT 
-        b.*,
-        c.name as customer_name,
-        c.phone as customer_phone
-      FROM "Booking" b
-      INNER JOIN "Customer" c ON b."customerId" = c.id
-      WHERE b.date::date = ${dateParam}::date
-      ORDER BY b.time ASC
-    `;
+    // Criar data sem timezone: extrair ano, mês, dia e criar Date local
+    const [year, month, day] = dateParam.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month é 0-indexed
+
+    // Buscar bookings
+    const bookings = await prisma.booking.findMany({
+      where: {
+        date,
+      },
+      include: {
+        customer: true,
+      },
+      orderBy: {
+        time: 'asc',
+      },
+    });
 
     return NextResponse.json({
       success: true,
       data: bookings.map((booking) => ({
         id: booking.id,
-        name: booking.customer_name,
-        phone: booking.customer_phone,
+        name: booking.customer.name,
+        phone: booking.customer.phone,
         date: booking.date,
         time: booking.time,
         adults: booking.adults,
@@ -117,23 +109,28 @@ export async function GET(request: NextRequest) {
 
       if (timeSlot.availableCapacity < capacityNeeded) {
         throw new Error(`Time slot does not have enough capacity. Available: ${timeSlot.availableCapacity}, Required: ${capacityNeeded}`);
-      }        // 2. Criar o booking
-        const booking = await tx.booking.create({
-          data: {
-            customerId,
-            date: new Date(date + 'T00:00:00.000Z'),
-            time,
-            adults: adults || 0,
-            children: children || 0,
-            totalPrice,
-            notes,
-            timeSlotId,
-            status: "PENDING",
-          },
-          include: {
-            customer: true,
-          },
-        });
+      }
+      
+      // 2. Criar o booking com data sem timezone
+      const [year, month, day] = date.split('-').map(Number);
+      const bookingDate = new Date(year, month - 1, day);
+      
+      const booking = await tx.booking.create({
+        data: {
+          customerId,
+          date: bookingDate,
+          time,
+          adults: adults || 0,
+          children: children || 0,
+          totalPrice,
+          notes,
+          timeSlotId,
+          status: "PENDING",
+        },
+        include: {
+          customer: true,
+        },
+      });
 
       // 3. Decrementar a capacidade disponível apenas por adultos
       await tx.timeSlot.update({

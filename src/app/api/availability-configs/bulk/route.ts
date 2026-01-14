@@ -48,7 +48,10 @@ export async function POST(request: Request) {
         const existingConfig = await tx.availabilityConfig.findFirst({
           where: configData.dayOfWeek !== undefined
             ? { dayOfWeek: configData.dayOfWeek, date: null }
-            : { date: configData.date ? new Date(configData.date + 'T00:00:00.000Z') : undefined },
+            : { date: configData.date ? (() => {
+                const [y, m, d] = configData.date.split('-').map(Number);
+                return new Date(y, m - 1, d);
+              })() : undefined },
         });
 
         let savedConfig;
@@ -72,7 +75,10 @@ export async function POST(request: Request) {
           savedConfig = await tx.availabilityConfig.create({
             data: {
               dayOfWeek: configData.dayOfWeek,
-              date: configData.date ? new Date(configData.date + 'T00:00:00.000Z') : null,
+              date: configData.date ? (() => {
+                const [y, m, d] = configData.date.split('-').map(Number);
+                return new Date(y, m - 1, d);
+              })() : null,
               startTime: configData.startTime,
               endTime: configData.endTime,
               slotDurationMinutes: configData.slotDurationMinutes,

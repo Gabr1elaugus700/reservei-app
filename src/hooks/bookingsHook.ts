@@ -47,7 +47,11 @@ export function useBookings(initialDate: Date = new Date()) {
       setLoading(true);
       setError(null);
 
-      const dateString = currentDate.toISOString().split("T")[0];
+      // Formatar data como YYYY-MM-DD sem conversão de timezone
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+      const day = String(currentDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
       
       // Buscar slots e bookings em paralelo
       const [slotsResponse, bookingsResponse] = await Promise.all([
@@ -187,7 +191,11 @@ export function useBookings(initialDate: Date = new Date()) {
       );
       attempts++;
 
-      const dateString = testDate.toISOString().split("T")[0];
+      // Formatar data como YYYY-MM-DD sem conversão de timezone
+      const year = testDate.getFullYear();
+      const month = String(testDate.getMonth() + 1).padStart(2, '0');
+      const day = String(testDate.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
       const response = await fetch(`/api/timeslots?date=${dateString}`);
       const result = await response.json();
 
