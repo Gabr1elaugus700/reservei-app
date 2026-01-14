@@ -50,18 +50,25 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: bookings.map((booking) => ({
-        id: booking.id,
-        name: booking.customer.name,
-        phone: booking.customer.phone,
-        date: booking.date,
-        time: booking.time,
-        adults: booking.adults,
-        children: booking.children,
-        totalPrice: booking.totalPrice ? Number(booking.totalPrice) : 0,
-        status: booking.status,
-        notes: booking.notes,
-      })),
+      data: bookings.map((booking) => {
+        // Formatar data sem conversão de timezone
+        const year = booking.date.getFullYear();
+        const month = String(booking.date.getMonth() + 1).padStart(2, '0');
+        const day = String(booking.date.getDate()).padStart(2, '0');
+        
+        return {
+          id: booking.id,
+          name: booking.customer.name,
+          phone: booking.customer.phone,
+          date: `${year}-${month}-${day}`,
+          time: booking.time,
+          adults: booking.adults,
+          children: booking.children,
+          totalPrice: booking.totalPrice ? Number(booking.totalPrice) : 0,
+          status: booking.status,
+          notes: booking.notes,
+        };
+      }),
     });
   } catch (error) {
     console.error("Error fetching bookings:", error);
@@ -151,7 +158,7 @@ export async function GET(request: NextRequest) {
         data: {
           id: result.id,
           customer: result.customer.name,
-          date: result.date,
+          date: `${result.date.getFullYear()}-${String(result.date.getMonth() + 1).padStart(2, '0')}-${String(result.date.getDate()).padStart(2, '0')}`,
           time: result.time,
           status: result.status,
         },

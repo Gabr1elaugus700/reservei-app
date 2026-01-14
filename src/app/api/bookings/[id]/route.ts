@@ -93,7 +93,7 @@ export async function PATCH(
           adults: result.adults,
           children: result.children,
           status: result.status,
-          date: result.date,
+          date: `${result.date.getFullYear()}-${String(result.date.getMonth() + 1).padStart(2, '0')}-${String(result.date.getDate()).padStart(2, '0')}`,
           time: result.time,
           totalPrice: result.totalPrice ? Number(result.totalPrice) : 0,
         },
@@ -116,7 +116,7 @@ export async function PATCH(
           adults: updatedBooking.adults,
           children: updatedBooking.children,
           status: updatedBooking.status,
-          date: updatedBooking.date,
+          date: `${updatedBooking.date.getFullYear()}-${String(updatedBooking.date.getMonth() + 1).padStart(2, '0')}-${String(updatedBooking.date.getDate()).padStart(2, '0')}`,
           time: updatedBooking.time,
         },
       });

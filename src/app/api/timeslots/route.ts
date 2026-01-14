@@ -38,7 +38,21 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: timeSlots,
+      data: timeSlots.map(slot => {
+        // Formatar data sem conversão de timezone
+        if (!slot.date) {
+          return slot;
+        }
+        
+        const year = slot.date.getFullYear();
+        const month = String(slot.date.getMonth() + 1).padStart(2, '0');
+        const day = String(slot.date.getDate()).padStart(2, '0');
+        
+        return {
+          ...slot,
+          date: `${year}-${month}-${day}`
+        };
+      }),
     });
   } catch (error) {
     console.error("Error fetching time slots:", error);
