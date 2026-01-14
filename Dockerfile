@@ -33,7 +33,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV TZ=America/Sao_Paulo
 
+RUN apk add --no-cache tzdata
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 
 # Copiar arquivos do Prisma (necessário para migrations)

@@ -12,6 +12,9 @@ export async function GET() {
       BETTER_AUTH_SECRET: string;
       BETTER_AUTH_URL: string;
       NODE_ENV: string | undefined;
+      TZ: string;
+      TIMEZONE: string;
+      SERVER_TIME: string;
     };
     data?: {
       users: number;
@@ -28,6 +31,9 @@ export async function GET() {
       BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ? '✓ configured' : '✗ missing',
       BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || 'not set',
       NODE_ENV: process.env.NODE_ENV,
+      TZ: process.env.TZ || 'not set',
+      TIMEZONE: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      SERVER_TIME: new Date().toString(),
     }
   };
 

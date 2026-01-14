@@ -6,6 +6,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-reservei}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reservei}
       POSTGRES_DB: ${POSTGRES_DB:-reservei}
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -32,6 +34,7 @@ services:
       - NEXT_PUBLIC_ADMIN_SUBDOMAIN=${NEXT_PUBLIC_ADMIN_SUBDOMAIN:-app}
       - NEXT_PUBLIC_PUBLIC_SUBDOMAIN=${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:-reservas}
       - NODE_ENV=production
+      - TZ=America/Sao_Paulo
     networks:
       - app-network
 
