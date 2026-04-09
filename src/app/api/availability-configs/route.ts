@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
 import { availabilityConfigSchema } from "@/lib/validations/availability-config.schema";
 import { syncTimeSlotsForConfig } from "@/lib/timeslot-service";
+import { serializeConfigDates, serializeConfigDate, parseDate } from "@/lib/date-serializer";
 
 // GET /api/availability-configs - Get all availability configs
 export async function GET() {
@@ -23,7 +24,10 @@ export async function GET() {
       );
     }
 
-    return new Response(JSON.stringify(configs), {
+    // Serializar datas corretamente - sempre YYYY-MM-DD sem timezone
+    const serializedConfigs = serializeConfigDates(configs);
+
+    return new Response(JSON.stringify(serializedConfigs), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -67,31 +71,65 @@ export async function POST(request: Request) {
 
     const parsedData = validation.data;
 
-    // Criar configuração
-    const newConfig = await prisma.availabilityConfig.create({
-      data: {
-        dayOfWeek: parsedData.dayOfWeek,
-        date: parsedData.date ? (() => {
-          const [y, m, d] = parsedData.date.split('-').map(Number);
-          return new Date(y, m - 1, d);
-        })() : null,
-        startTime: parsedData.startTime,
-        endTime: parsedData.endTime,
-        slotDurationMinutes: parsedData.slotDurationMinutes,
-        capacityPerSlot: parsedData.capacityPerSlot,
-        isException: parsedData.isException,
-        isActive: parsedData.isActive,
-        breakPeriods: parsedData.breakPeriods || [],
-      } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+    console.log(`[POST /api/availability-configs] Data recebida:`, parsedData);
+
+    // Verificar se já existe configuração para essa data ou dayOfWeek
+    const existingConfig = await prisma.availabilityConfig.findFirst({
+      where: parsedData.dayOfWeek !== undefined
+        ? { dayOfWeek: parsedData.dayOfWeek, date: null }
+        : { date: parsedData.date ? parseDate(parsedData.date) : undefined },
     });
 
+    console.log(`[POST /api/availability-configs] Config existente encontrada:`, existingConfig ? `ID=${existingConfig.id}` : 'NENHUMA');
+
+    let config;
+
+    if (existingConfig) {
+      // Atualizar configuração existente
+      console.log(`[POST /api/availability-configs] → Atualizando config ID=${existingConfig.id}`);
+      config = await prisma.availabilityConfig.update({
+        where: { id: existingConfig.id },
+        data: {
+          startTime: parsedData.startTime,
+          endTime: parsedData.endTime,
+          slotDurationMinutes: parsedData.slotDurationMinutes,
+          capacityPerSlot: parsedData.capacityPerSlot,
+          isActive: parsedData.isActive,
+          isException: parsedData.isException,
+          breakPeriods: parsedData.breakPeriods || [],
+        } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      });
+    } else {
+      // Criar configuração nova
+      console.log(`[POST /api/availability-configs] → Criando nova config`);
+      config = await prisma.availabilityConfig.create({
+        data: {
+          dayOfWeek: parsedData.dayOfWeek,
+          date: parsedData.date ? parseDate(parsedData.date) : null,
+          startTime: parsedData.startTime,
+          endTime: parsedData.endTime,
+          slotDurationMinutes: parsedData.slotDurationMinutes,
+          capacityPerSlot: parsedData.capacityPerSlot,
+          isException: parsedData.isException,
+          isActive: parsedData.isActive,
+          breakPeriods: parsedData.breakPeriods || [],
+        } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+      });
+    }
+
+    console.log(`[POST /api/availability-configs] ✓ Config salva com ID=${config.id}`);
+
     // Gerar TimeSlots automaticamente
-    await syncTimeSlotsForConfig(newConfig.id);
+    await syncTimeSlotsForConfig(config.id);
+
+    // Serializar data como YYYY-MM-DD (sem timezone)
+    const serializedConfig = serializeConfigDate(config);
 
     return NextResponse.json({
       success: true,
-      data: newConfig,
-    }, { status: 201 });
+      data: serializedConfig,
+      updated: !!existingConfig, // Indica se foi atualização ao invés de criação
+    }, { status: existingConfig ? 200 : 201 });
   } catch (error) {
     console.error("Error creating availability config:", error);
     

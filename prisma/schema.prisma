@@ -213,6 +213,7 @@ model TimeSlot {
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
+    @@unique([date, startTime], name: "unique_slot_per_date_time")
     @@index([dayOfWeek, startTime])
     @@index([date, startTime])
 }

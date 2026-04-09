@@ -9,12 +9,9 @@ export interface Booking {
   time: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED";
   date: string;
-<<<<<<< HEAD
-  timeSlot: string;
-=======
   totalPrice: number;
   notes?: string;
->>>>>>> a126603dffde428a931afc19b4e064e4e285e2cc
+  timeSlotId?: string;
 }
 
 export interface TimeSlot {
@@ -53,6 +50,7 @@ export function useBookings(initialDate?: Date) {
 
   const loadBookingsAndSlots = async () => {
     try {
+      console.log('[loadBookingsAndSlots] Iniciando...');
       setLoading(true); 
       setError(null);
 
@@ -82,12 +80,40 @@ export function useBookings(initialDate?: Date) {
       const slots: TimeSlot[] = slotsResult.data;
       const bookingsData: Booking[] = bookingsResult.data;
 
+      console.log(`[loadBookingsAndSlots] Recebidos ${slots.length} slots da API`);
+      console.log('[loadBookingsAndSlots] Slot IDs:', slots.map(s => s.id));
+
+      // Detectar e remover duplicatas
+      const ids = slots.map(s => s.id);
+      const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+      if (duplicateIds.length > 0) {
+        console.error('❌ API retornou slots duplicados:', duplicateIds);
+      }
+
+      // Deduplica slots por ID
+      const uniqueSlots = slots.filter((slot, index, self) => 
+        index === self.findIndex(s => s.id === slot.id)
+      );
+
+      if (uniqueSlots.length < slots.length) {
+        console.warn(`🚨 ${slots.length - uniqueSlots.length} slots duplicados removidos da API`);
+      }
+
       // Agrupar bookings por slot
       // IMPORTANTE: Mostrar todos os slots que têm agendamentos, mesmo que estejam cheios
-      const grouped = slots
+      const grouped = uniqueSlots
         .map((slot) => {
+          // CORREÇÃO: Associar por timeSlotId ao invés de startTime
+          // para evitar que bookings apareçam em slots duplicados
           const slotBookings = bookingsData.filter(
-            (booking) => booking.time === slot.startTime
+            (booking) => {
+              // Se booking tem timeSlotId, usar ele (método preferencial)
+              if (booking.timeSlotId) {
+                return booking.timeSlotId === slot.id;
+              }
+              // Fallback para bookings antigos sem timeSlotId
+              return booking.time === slot.startTime;
+            }
           );
           const revenue = slotBookings.reduce(
             (sum, booking) => sum + (booking.totalPrice || 0),
@@ -108,6 +134,7 @@ export function useBookings(initialDate?: Date) {
         0
       );
 
+      console.log(`[loadBookingsAndSlots] Setando ${grouped.length} grupos`);
       setSlotGroups(grouped);
       setBookings(bookingsData);
       setTotalDayRevenue(dayRevenue);
@@ -145,6 +172,8 @@ export function useBookings(initialDate?: Date) {
     updates: { adults?: number; children?: number; status?: string }
   ) => {
     try {
+      console.log('[updateBooking] Atualizando booking:', bookingId, updates);
+      
       const response = await fetch(`/api/bookings/${bookingId}`, {
         method: "PATCH",
         headers: {
@@ -159,6 +188,8 @@ export function useBookings(initialDate?: Date) {
         throw new Error(result.message || "Error updating booking");
       }
 
+      console.log('[updateBooking] Booking atualizado com sucesso, recarregando dados...');
+      
       // Recarregar os dados
       await loadBookingsAndSlots();
       return result.data;
@@ -247,6 +278,35 @@ export function useBookings(initialDate?: Date) {
     setCurrentDate(newDate);
   };
 
+  const updateSlotCapacity = async (slotId: string, newCapacity: number) => {
+    try {
+      console.log('[updateSlotCapacity] Atualizando capacidade do slot:', slotId, newCapacity);
+      
+      const response = await fetch(`/api/timeslots/${slotId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ totalCapacity: newCapacity }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Erro ao atualizar capacidade");
+      }
+
+      console.log('[updateSlotCapacity] Capacidade atualizada com sucesso, recarregando dados...');
+      
+      // Recarregar os dados
+      await loadBookingsAndSlots();
+      return result.data;
+    } catch (err) {
+      console.error("Error updating slot capacity:", err);
+      throw err;
+    }
+  };
+
   return {
     currentDate,
     slotGroups,
@@ -260,6 +320,7 @@ export function useBookings(initialDate?: Date) {
     goToDate,
     updateBooking,
     deleteBooking,
+    updateSlotCapacity,
     refreshData: loadBookingsAndSlots,
   };
 }

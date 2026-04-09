@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Loader2, Check, Edit2, X, DollarSign, Plus, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Loader2, Check, Edit2, X, DollarSign, Plus, Trash2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBookings } from "@/hooks/bookingsHook";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ const BookingsList = () => {
     goToToday,
     updateBooking,
     deleteBooking,
+    updateSlotCapacity,
     refreshData,
   } = useBookings();
 
@@ -26,6 +27,12 @@ const BookingsList = () => {
   const [editChildren, setEditChildren] = useState(0);
   const [saving, setSaving] = useState(false);
   const [addingToSlotId, setAddingToSlotId] = useState<string | null>(null);
+  
+  // Estados para edição de capacidade
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
+  const [newCapacity, setNewCapacity] = useState(0);
+  const [savingCapacity, setSavingCapacity] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const monthNames = [
@@ -110,6 +117,33 @@ const BookingsList = () => {
     refreshData();
   };
 
+  // Funções para edição de capacidade
+  const startEditCapacity = (slotId: string, currentCapacity: number) => {
+    setEditingSlotId(slotId);
+    setNewCapacity(currentCapacity);
+  };
+
+  const cancelEditCapacity = () => {
+    setEditingSlotId(null);
+    setNewCapacity(0);
+  };
+
+  const saveCapacity = async (slotId: string) => {
+    try {
+      setSavingCapacity(true);
+      await updateSlotCapacity(slotId, newCapacity);
+      setEditingSlotId(null);
+      setFeedbackMessage({ type: 'success', text: 'Capacidade atualizada com sucesso!' });
+      setTimeout(() => setFeedbackMessage(null), 3000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Erro ao salvar capacidade";
+      setFeedbackMessage({ type: 'error', text: errorMessage });
+      setTimeout(() => setFeedbackMessage(null), 5000);
+    } finally {
+      setSavingCapacity(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -138,8 +172,49 @@ const BookingsList = () => {
     }, 0);
   }, 0);
 
+  // Detectar e remover slots duplicados
+  useEffect(() => {
+    const ids = slotGroups.map(g => g.slot.id);
+    const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+    if (duplicates.length > 0) {
+      console.warn('🚨 Slots duplicados detectados no componente:', duplicates);
+      console.log('slotGroups completo:', slotGroups);
+    }
+  }, [slotGroups]);
+
+  // Deduplica grupos com mesmo slot.id
+  const deduplicatedGroups = useMemo(() => {
+    const seen = new Set<string>();
+    return slotGroups.filter(group => {
+      if (seen.has(group.slot.id)) {
+        console.warn('🚨 Removendo slot duplicado da renderização:', group.slot.id);
+        return false;
+      }
+      seen.add(group.slot.id);
+      return true;
+    });
+  }, [slotGroups]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Feedback Toast */}
+      {feedbackMessage && (
+        <div className={`fixed top-4 right-4 z-50 rounded-lg p-4 shadow-lg animate-in slide-in-from-top ${
+          feedbackMessage.type === 'success' 
+            ? 'bg-green-600 text-white' 
+            : 'bg-red-600 text-white'
+        }`}>
+          <div className="flex items-center gap-2">
+            {feedbackMessage.type === 'success' ? (
+              <Check className="h-5 w-5" />
+            ) : (
+              <AlertCircle className="h-5 w-5" />
+            )}
+            <p className="font-medium">{feedbackMessage.text}</p>
+          </div>
+        </div>
+      )}
+      
       <main className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 flex-1">
         {/* Header com Faturamento Total */}
         <div className="bg-green-600 rounded-2xl p-6 mb-6 shadow-lg text-white">
@@ -266,7 +341,7 @@ const BookingsList = () => {
             )}
           </div>
 
-          {slotGroups.length === 0 ? (
+          {deduplicatedGroups.length === 0 ? (
             <div className="bg-card rounded-2xl p-8 text-center shadow-sm">
               <Calendar className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <p className="text-muted-foreground">
@@ -275,7 +350,7 @@ const BookingsList = () => {
             </div>
           ) : (
             <div className="space-y-6">
-              {slotGroups.map((group) => (
+              {deduplicatedGroups.map((group) => (
                 <div key={group.slot.id} className="bg-card rounded-2xl p-5 shadow-sm">
                   {/* Cabeçalho do Slot */}
                   <div className="border-b pb-3 mb-4">
@@ -284,33 +359,98 @@ const BookingsList = () => {
                         <div className="bg-primary/10 rounded-lg p-2">
                           <span className="text-lg font-bold text-primary">
                             {group.slot.startTime}
-                          </span>
+                          </span> 
                         </div>
                         <div>
-                          <p className="text-sm text-muted-foreground">
-                            Capacidade: {group.slot.availableCapacity}/{group.slot.totalCapacity}
-                          </p>
-                          <p className="text-sm font-semibold text-green-600">
-                            Faturamento: {formatCurrency(group.totalRevenue)}
-                          </p>
+                          {/* Modo de edição de capacidade */}
+                          {editingSlotId === group.slot.id ? (
+                            (() => {
+                              // Calcular total de adultos reservados neste slot
+                              const totalAdultsBooked = group.bookings.reduce((sum, booking) => sum + booking.adults, 0);
+                              const isInvalid = newCapacity < totalAdultsBooked;
+                              
+                              return (
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <label className="text-sm font-medium">Nova Capacidade:</label>
+                                    <Input
+                                      type="number"
+                                      min={totalAdultsBooked}
+                                      value={newCapacity}
+                                      onChange={(e) => setNewCapacity(parseInt(e.target.value) || 0)}
+                                      className={`w-24 h-8 ${isInvalid ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                                      autoFocus
+                                    />
+                                    <Button
+                                      size="sm"
+                                      onClick={() => saveCapacity(group.slot.id)}
+                                      disabled={savingCapacity || isInvalid || newCapacity === 0}
+                                      className="gap-1 h-8"
+                                    >
+                                      <Check className="h-3 w-3" />
+                                      Salvar
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={cancelEditCapacity}
+                                      disabled={savingCapacity}
+                                      className="gap-1 h-8"
+                                    >
+                                      <X className="h-3 w-3" />
+                                      Cancelar
+                                    </Button>
+                                  </div>
+                                  {isInvalid && newCapacity > 0 && (
+                                    <p className="text-xs text-red-600 font-medium">
+                                      ⚠️ A capacidade mínima é {totalAdultsBooked} (há {totalAdultsBooked} {totalAdultsBooked === 1 ? 'adulto reservado' : 'adultos reservados'})
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()
+                          ) : (
+                            <>
+                              <p className="text-sm text-muted-foreground">
+                                Capacidade: {group.slot.availableCapacity}/{group.slot.totalCapacity}
+                              </p>
+                              <p className="text-sm font-semibold text-green-600">
+                                Faturamento: {formatCurrency(group.totalRevenue)}
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground">
-                            {group.bookings.length} {group.bookings.length === 1 ? 'agendamento' : 'agendamentos'}
-                          </p>
-                        </div>
-                        {group.slot.availableCapacity > 0 && (
-                          <Button
-                            size="sm"
-                            onClick={() => setAddingToSlotId(group.slot.id)}
-                            disabled={addingToSlotId !== null}
-                            className="gap-1"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Adicionar
-                          </Button>
+                        {editingSlotId !== group.slot.id && (
+                          <>
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">
+                                {group.bookings.length} {group.bookings.length === 1 ? 'agendamento' : 'agendamentos'}
+                              </p>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startEditCapacity(group.slot.id, group.slot.totalCapacity)}
+                              className="gap-2"
+                              title="Editar capacidade deste horário"
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Editar Capacidade
+                            </Button>
+                            {group.slot.availableCapacity > 0 && (
+                              <Button
+                                size="sm"
+                                onClick={() => setAddingToSlotId(group.slot.id)}
+                                disabled={addingToSlotId !== null}
+                                className="gap-1"
+                              >
+                                <Plus className="h-4 w-4" />
+                                Adicionar
+                              </Button>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>

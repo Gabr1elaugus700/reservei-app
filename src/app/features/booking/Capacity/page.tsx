@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAvailabilitySchedule } from "@/hooks/use-capacity-management";
-import { useSession } from "@/lib/auth-client";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -58,9 +57,6 @@ interface Booking {
 }
 
 export default function CapacityPage() {
-  const { data: session, isPending } = useSession();
-  const isAuthenticated = !!session?.user;
-
   const {
     weekConfig,
     loading,
@@ -126,13 +122,25 @@ export default function CapacityPage() {
 
       const allConfigs: AvailabilityConfig[] = await configResponse.json();
 
-      // Filtrar por data específica
+      console.log(`[searchSpecificDate] Buscando config para data: ${specificDate}`);
+      console.log(`[searchSpecificDate] Total de configs no backend: ${allConfigs.length}`);
+
+      // Filtrar por data específica - comparar strings direto
+      // Backend retorna date sempre como "YYYY-MM-DD" (sem timezone)
       const configsForDate = allConfigs.filter((config) => {
         if (!config.date) return false;
-        const date = new Date(config.date);
-        const configDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        return configDate === specificDate;
+        // API já retorna date como string "YYYY-MM-DD"
+        const configDate = typeof config.date === 'string' 
+          ? config.date.split('T')[0]  // Se vier como ISO string (fallback)
+          : config.date;                // Se vier como string direta
+        const match = configDate === specificDate;
+        if (match) {
+          console.log(`[searchSpecificDate] ✓ Config encontrada: ID=${config.id}, Date=${configDate}`);
+        }
+        return match;
       });
+
+      console.log(`[searchSpecificDate] Configs encontradas para ${specificDate}: ${configsForDate.length}`);
 
       let config: AvailabilityConfig | null = null;
       let formData: SpecificDateFormData = {
@@ -238,9 +246,14 @@ export default function CapacityPage() {
         capacityPerSlot: specificFormData.capacityPerSlot,
       };
 
+      console.log(`[saveSpecificDateConfig] Config ID: ${specificDateConfig?.id || 'NULL'}`);
+      console.log(`[saveSpecificDateConfig] Operação: ${specificDateConfig?.id ? 'UPDATE' : 'CREATE'}`);
+      console.log(`[saveSpecificDateConfig] Payload:`, payload);
+
       let response;
       if (specificDateConfig?.id) {
         // Atualizar configuração existente
+        console.log(`[saveSpecificDateConfig] → PUT /api/availability-configs/${specificDateConfig.id}`);
         response = await fetch(
           `/api/availability-configs/${specificDateConfig.id}`,
           {
@@ -251,6 +264,7 @@ export default function CapacityPage() {
         );
       } else {
         // Criar nova configuração
+        console.log(`[saveSpecificDateConfig] → POST /api/availability-configs`);
         response = await fetch("/api/availability-configs", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -285,7 +299,7 @@ export default function CapacityPage() {
   };
 
   // Mostrar loading enquanto carrega
-  if (loading || isPending) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex items-center space-x-2">
@@ -296,11 +310,6 @@ export default function CapacityPage() {
         </div>
       </div>
     );
-  }
-
-  // Se não está autenticado após o loading, não renderiza nada
-  if (!isAuthenticated) {
-    return null;
   }
 
   return (
@@ -386,13 +395,14 @@ export default function CapacityPage() {
                     type="date"
                     value={specificDate}
                     onChange={(e) => setSpecificDate(e.target.value)}
+                    disabled={loadingSpecific || savingSpecific}
                     className="w-full"
                   />
                 </div>
                 <div className="flex items-end">
                   <Button
                     onClick={searchSpecificDate}
-                    disabled={loadingSpecific || !specificDate}
+                    disabled={loadingSpecific || savingSpecific || !specificDate}
                     className="bg-orange-600 hover:bg-orange-700"
                   >
                     {loadingSpecific ? (
@@ -453,6 +463,7 @@ export default function CapacityPage() {
                       setDateStats(null);
                       setConfigExists(false);
                     }}
+                    disabled={savingSpecific}
                   >
                     Cancelar
                   </Button>
@@ -490,7 +501,8 @@ export default function CapacityPage() {
                         isActive: !e.target.checked,
                       })
                     }
-                    className="h-5 w-5 text-red-600 rounded border-gray-300"
+                    disabled={savingSpecific}
+                    className="h-5 w-5 text-red-600 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <div className="flex-1">
                     <Label
@@ -619,6 +631,7 @@ export default function CapacityPage() {
                             startTime: e.target.value,
                           })
                         }
+                        disabled={savingSpecific}
                         className="mt-1"
                       />
                     </div>
@@ -636,6 +649,7 @@ export default function CapacityPage() {
                             endTime: e.target.value,
                           })
                         }
+                        disabled={savingSpecific}
                         className="mt-1"
                       />
                     </div>
@@ -661,6 +675,7 @@ export default function CapacityPage() {
                             slotDurationMinutes: parseInt(e.target.value) || 30,
                           })
                         }
+                        disabled={savingSpecific}
                         className="mt-1"
                       />
                     </div>
@@ -682,6 +697,7 @@ export default function CapacityPage() {
                             capacityPerSlot: parseInt(e.target.value) || 1,
                           })
                         }
+                        disabled={savingSpecific}
                         className="mt-1"
                       />
                     </div>
@@ -725,6 +741,7 @@ export default function CapacityPage() {
                     setDateStats(null);
                     setConfigExists(false);
                   }}
+                  disabled={savingSpecific}
                 >
                   Cancelar
                 </Button>
@@ -800,7 +817,8 @@ export default function CapacityPage() {
                       type="checkbox"
                       checked={day.enabled}
                       onChange={() => toggleDay(day.dayOfWeek)}
-                      className="h-5 w-5 text-blue-600 rounded border-gray-300"
+                      disabled={saving}
+                      className="h-5 w-5 text-blue-600 rounded border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                     <div>
                       <div className="font-semibold text-gray-900 text-lg">
@@ -850,6 +868,7 @@ export default function CapacityPage() {
                               e.target.value
                             )
                           }
+                          disabled={saving || !day.enabled}
                           className="mt-1"
                         />
                       </div>
@@ -871,6 +890,7 @@ export default function CapacityPage() {
                               e.target.value
                             )
                           }
+                          disabled={saving || !day.enabled}
                           className="mt-1"
                         />
                       </div>
@@ -920,6 +940,7 @@ export default function CapacityPage() {
                               parseInt(e.target.value) || 1
                             )
                           }
+                          disabled={saving || !day.enabled}
                           className="mt-1"
                         />
                       </div>
@@ -935,6 +956,7 @@ export default function CapacityPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => addBreakPeriod(day.dayOfWeek)}
+                          disabled={saving}
                           className="text-xs"
                         >
                           <Plus className="h-3 w-3 mr-1" />
@@ -965,6 +987,7 @@ export default function CapacityPage() {
                                     e.target.value
                                   )
                                 }
+                                disabled={saving}
                                 className="w-32"
                               />
                               <span className="text-gray-500">até</span>
@@ -979,6 +1002,7 @@ export default function CapacityPage() {
                                     e.target.value
                                   )
                                 }
+                                disabled={saving}
                                 className="w-32"
                               />
                               <Button
@@ -990,6 +1014,7 @@ export default function CapacityPage() {
                                     breakPeriod.id
                                   )
                                 }
+                                disabled={saving}
                                 className="ml-auto text-red-600 hover:text-red-700 hover:bg-red-50"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1036,7 +1061,8 @@ export default function CapacityPage() {
                   <button
                     key={days}
                     onClick={() => setDaysAhead(days)}
-                    className={`p-3 rounded-lg border-2 transition-all ${
+                    disabled={saving}
+                    className={`p-3 rounded-lg border-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                       daysAhead === days
                         ? "border-green-600 bg-green-100 text-green-900"
                         : "border-gray-300 bg-white text-gray-700 hover:border-green-400"
@@ -1062,6 +1088,7 @@ export default function CapacityPage() {
                   max="365"
                   value={daysAhead}
                   onChange={(e) => setDaysAhead(parseInt(e.target.value) || 30)}
+                  disabled={saving}
                   className="w-24"
                 />
                 <span className="text-sm text-gray-600">dias</span>

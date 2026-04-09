@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
           totalPrice: booking.totalPrice ? Number(booking.totalPrice) : 0,
           status: booking.status,
           notes: booking.notes,
+          timeSlotId: booking.timeSlotId, // ← Retornar timeSlotId para o frontend
         };
       }),
     });

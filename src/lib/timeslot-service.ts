@@ -313,26 +313,37 @@ export async function syncTimeSlotsForConfig(
     !existingSlots.some(existing => existing.startTime === s.startTime)
   );
 
-  const createdSlots = await Promise.all(
-    slotsToCreate.map((slot) =>
-      db.timeSlot.create({
-        data: {
-          availabilityConfigId: configId,
-          dayOfWeek: config.dayOfWeek ?? undefined,
-          date: config.date || null,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          totalCapacity: config.capacityPerSlot,
-          availableCapacity: config.capacityPerSlot,
-          isAvailable: true,
-        } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
-      })
-    )
-  );
+  let createdCount = 0;
+  if (slotsToCreate.length > 0) {
+    console.log(`[syncTimeSlotsForConfig] Criando ${slotsToCreate.length} novos slots para config ${configId}`);
+    
+    // Usar createMany para evitar race conditions
+    const result = await db.timeSlot.createMany({
+      data: slotsToCreate.map(slot => ({
+        availabilityConfigId: configId,
+        dayOfWeek: config.dayOfWeek ?? undefined,
+        date: config.date || null,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        totalCapacity: config.capacityPerSlot,
+        availableCapacity: config.capacityPerSlot,
+        isAvailable: true,
+      })),
+      skipDuplicates: true, // Ignora duplicatas (constraint UNIQUE)
+    });
+    
+    createdCount = result.count;
+    console.log(`[syncTimeSlotsForConfig] ${createdCount} slots criados com sucesso`);
+  }
 
-  console.log(`✅ Sync completo: ${slotsToUpdate.length + slotsWithoutBookingsToUpdate.length} atualizados, ${createdSlots.length} criados, ${slotIdsToDelete.length} removidos (${slotIdsWithBookings.length} preservados com bookings)`);
+  console.log(`✅ Sync completo: ${slotsToUpdate.length + slotsWithoutBookingsToUpdate.length} atualizados, ${createdCount} criados, ${slotIdsToDelete.length} removidos (${slotIdsWithBookings.length} preservados com bookings)`);
 
-  return [...slotsToUpdate, ...slotsWithoutBookingsToUpdate, ...createdSlots];
+  // Buscar slots finais para retornar
+  const finalSlots = await db.timeSlot.findMany({
+    where: { availabilityConfigId: configId },
+  });
+
+  return finalSlots;
 }
 
 /**

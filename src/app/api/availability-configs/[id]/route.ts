@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
 import { availabilityConfigSchema } from "@/lib/validations/availability-config.schema";
 import { syncTimeSlotsForConfig } from "@/lib/timeslot-service";
+import { serializeConfigDate, parseDate } from "@/lib/date-serializer";
 
 // GET /api/availability-configs/[id] - Get availability config by ID
 export async function GET( request: Request, { params }: { params: Promise<{ id: string }> } ) {
@@ -27,7 +28,10 @@ export async function GET( request: Request, { params }: { params: Promise<{ id:
             );
         }
 
-        return new Response(JSON.stringify(config), {
+        // Serializar data como YYYY-MM-DD (sem timezone)
+        const serializedConfig = serializeConfigDate(config);
+
+        return new Response(JSON.stringify(serializedConfig), {
             status: 200,
             headers: {
                 "Content-Type": "application/json",
@@ -67,10 +71,13 @@ export async function DELETE( request: Request, { params }: { params: Promise<{ 
             );
         }
 
+        // Serializar data como YYYY-MM-DD (sem timezone)
+        const serializedConfig = serializeConfigDate(config);
+
         return new Response(JSON.stringify({ 
             success: true, 
             message: "Availability config and related time slots deleted successfully",
-            data: config 
+            data: serializedConfig 
         }), {
             status: 200,
             headers: {
@@ -106,10 +113,7 @@ export async function PUT( request: Request, { params }: { params: Promise<{ id:
         // Converter date de string para Date após validação, se existir
         const dataToUpdate = {
             ...parsedData,
-            date: parsedData.date ? (() => {
-              const [y, m, d] = parsedData.date.split('-').map(Number);
-              return new Date(y, m - 1, d);
-            })() : undefined
+            date: parsedData.date ? parseDate(parsedData.date) : undefined
         };
 
         // Update config and regenerate time slots in a transaction
@@ -125,10 +129,13 @@ export async function PUT( request: Request, { params }: { params: Promise<{ id:
             return updatedConfig;
         });
 
+        // Serializar data como YYYY-MM-DD (sem timezone)
+        const serializedResult = serializeConfigDate(result);
+
         return new Response(JSON.stringify({ 
             success: true, 
             message: "Availability config updated and time slots regenerated",
-            data: result 
+            data: serializedResult 
         }), {
             status: 200,
             headers: {
