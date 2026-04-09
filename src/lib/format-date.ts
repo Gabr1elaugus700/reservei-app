@@ -5,7 +5,9 @@
  */
 export function formatDate(dateString: string): string {
   try {
-    const date = new Date(dateString + 'T00:00:00');
+    // Parse YYYY-MM-DD sem conversão de timezone
+    const [yearValue, monthValue, dayValue] = dateString.split('-').map(Number);
+    const date = new Date(yearValue, monthValue - 1, dayValue);
     
     if (isNaN(date.getTime())) {
       return dateString;

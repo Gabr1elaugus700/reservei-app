@@ -6,7 +6,9 @@ import { organization } from "better-auth/plugins/organization";
 
 const prisma = new PrismaClient();
 export const auth = betterAuth({
-     emailAndPassword: {
+    secret: process.env.BETTER_AUTH_SECRET || "default-secret-key-change-in-production",
+    baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+    emailAndPassword: {
         enabled: true,
     },
     database: prismaAdapter(prisma, {
@@ -18,5 +20,10 @@ export const auth = betterAuth({
     plugins: [
         organization(),
         nextCookies(),
-    ]
+    ],
+    trustedOrigins: [
+        "http://localhost:3000",
+        "https://reservas.app-reservei.com.br",
+        "https://app.app-reservei.com.br",
+    ],
 });

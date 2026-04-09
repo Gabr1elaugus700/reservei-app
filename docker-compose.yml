@@ -1,16 +1,40 @@
-version: "3.8"
 services:
-  db:
-    image: postgres:16
-    container_name: reservei_postgres
+  postgres:
+    image: postgres:15-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: reservei
-      POSTGRES_PASSWORD: reservei
-      POSTGRES_DB: reservei
-    ports:
-      - "5438:5432"   # host 5438 -> container 5432
+      POSTGRES_USER: ${POSTGRES_USER:-reservei}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reservei}
+      POSTGRES_DB: ${POSTGRES_DB:-reservei}
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+  web:
+    image: app-reservei:latest
+    restart: unless-stopped
+    ports:
+      - "3005:3000"
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://reservei:reservei@postgres:5432/reservei}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-https://reservas.app-reservei.com.br}
+      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN:-app-reservei.com.br}
+      - NEXT_PUBLIC_ADMIN_SUBDOMAIN=${NEXT_PUBLIC_ADMIN_SUBDOMAIN:-app}
+      - NEXT_PUBLIC_PUBLIC_SUBDOMAIN=${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:-reservas}
+      - NODE_ENV=production
+      - TZ=America/Sao_Paulo
+    networks:
+      - app-network
+
 volumes:
-  pgdata:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

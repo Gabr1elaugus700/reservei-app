@@ -23,14 +23,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const date = new Date(dateParam);
-    if (isNaN(date.getTime())) {
+    // Validar formato de data
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return NextResponse.json(
-        { success: false, message: "Invalid date format" },
+        { success: false, message: "Invalid date format. Use YYYY-MM-DD" },
         { status: 400 }
       );
     }
 
+    // Criar data sem timezone: extrair ano, mês, dia e criar Date local
+    const [year, month, day] = dateParam.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month é 0-indexed
+
+    // Buscar bookings
     const bookings = await prisma.booking.findMany({
       where: {
         date,
@@ -38,17 +43,32 @@ export async function GET(request: NextRequest) {
       include: {
         customer: true,
       },
+      orderBy: {
+        time: 'asc',
+      },
     });
 
     return NextResponse.json({
       success: true,
-      data: bookings.map((booking) => ({
-        id: booking.id,
-        responsible: booking.customer.name,
-        phone: booking.customer.phone,
-        dateTime: booking.date,
-        status: booking.status,
-      })),
+      data: bookings.map((booking) => {
+        // Formatar data sem conversão de timezone
+        const year = booking.date.getFullYear();
+        const month = String(booking.date.getMonth() + 1).padStart(2, '0');
+        const day = String(booking.date.getDate()).padStart(2, '0');
+        
+        return {
+          id: booking.id,
+          name: booking.customer.name,
+          phone: booking.customer.phone,
+          date: `${year}-${month}-${day}`,
+          time: booking.time,
+          adults: booking.adults,
+          children: booking.children,
+          totalPrice: booking.totalPrice ? Number(booking.totalPrice) : 0,
+          status: booking.status,
+          notes: booking.notes,
+        };
+      }),
     });
   } catch (error) {
     console.error("Error fetching bookings:", error);
@@ -80,8 +100,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Calcular total de pessoas
-    const totalPeople = adults + (children || 0);
+    // Apenas adultos contam para capacidade (crianças são apenas pagantes)
+    const capacityNeeded = adults;
 
     // Usar transação para garantir atomicidade
     const result = await prisma.$transaction(async (tx) => {
@@ -94,32 +114,37 @@ export async function GET(request: NextRequest) {
         throw new Error("Time slot not found");
       }
 
-      if (timeSlot.availableCapacity < totalPeople) {
-        throw new Error(`Time slot does not have enough capacity. Available: ${timeSlot.availableCapacity}, Required: ${totalPeople}`);
-      }        // 2. Criar o booking
-        const booking = await tx.booking.create({
-          data: {
-            customerId,
-            date: new Date(date),
-            time,
-            adults: adults || 0,
-            children: children || 0,
-            totalPrice,
-            notes,
-            timeSlotId,
-            status: "PENDING",
-          },
-          include: {
-            customer: true,
-          },
-        });
+      if (timeSlot.availableCapacity < capacityNeeded) {
+        throw new Error(`Time slot does not have enough capacity. Available: ${timeSlot.availableCapacity}, Required: ${capacityNeeded}`);
+      }
+      
+      // 2. Criar o booking com data sem timezone
+      const [year, month, day] = date.split('-').map(Number);
+      const bookingDate = new Date(year, month - 1, day);
+      
+      const booking = await tx.booking.create({
+        data: {
+          customerId,
+          date: bookingDate,
+          time,
+          adults: adults || 0,
+          children: children || 0,
+          totalPrice,
+          notes,
+          timeSlotId,
+          status: "PENDING",
+        },
+        include: {
+          customer: true,
+        },
+      });
 
-      // 3. Decrementar a capacidade disponível pelo total de pessoas
+      // 3. Decrementar a capacidade disponível apenas por adultos
       await tx.timeSlot.update({
         where: { id: timeSlotId },
         data: {
           availableCapacity: {
-            decrement: totalPeople,
+            decrement: capacityNeeded,
           },
         },
       });
@@ -133,7 +158,7 @@ export async function GET(request: NextRequest) {
         data: {
           id: result.id,
           customer: result.customer.name,
-          date: result.date,
+          date: `${result.date.getFullYear()}-${String(result.date.getMonth() + 1).padStart(2, '0')}-${String(result.date.getDate()).padStart(2, '0')}`,
           time: result.time,
           status: result.status,
         },

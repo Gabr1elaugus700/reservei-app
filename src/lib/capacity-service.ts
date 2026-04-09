@@ -30,11 +30,16 @@ class CapacityService {
         limit: wc.limit,
         enabled: wc.enabled
       })),
-      specialDates: specialDates.map(sd => ({
-        date: sd.date.toISOString().split('T')[0],
-        limit: sd.limit,
-        description: sd.description || undefined
-      }))
+      specialDates: specialDates.map(sd => {
+        const year = sd.date.getFullYear();
+        const month = String(sd.date.getMonth() + 1).padStart(2, '0');
+        const day = String(sd.date.getDate()).padStart(2, '0');
+        return {
+          date: `${year}-${month}-${day}`,
+          limit: sd.limit,
+          description: sd.description || undefined
+        };
+      })
     };
   }
 

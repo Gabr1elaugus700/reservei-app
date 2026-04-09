@@ -14,16 +14,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const requestedDate = new Date(dateParam);
-    if (isNaN(requestedDate.getTime())) {
+    // Validar formato de data
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return NextResponse.json(
         { success: false, message: "Invalid date format. Use YYYY-MM-DD" },
         { status: 400 }
       );
     }
 
-    // Buscar slots para a data específica
-      const allTimeSlots = await prisma.timeSlot.findMany({
+    // Criar data sem timezone: extrair ano, mês, dia e criar Date local
+    const [year, month, day] = dateParam.split('-').map(Number);
+    const requestedDate = new Date(year, month - 1, day);
+
+    // Buscar todos os slots para a data específica
+    const timeSlots = await prisma.timeSlot.findMany({
       where: {
         date: requestedDate,
       },
@@ -32,10 +36,23 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Filtrar apenas slots disponíveis
-    const timeSlots = allTimeSlots.filter((slot) => slot.availableCapacity > 0);    return NextResponse.json({
+    return NextResponse.json({
       success: true,
-      data: timeSlots,
+      data: timeSlots.map(slot => {
+        // Formatar data sem conversão de timezone
+        if (!slot.date) {
+          return slot;
+        }
+        
+        const year = slot.date.getFullYear();
+        const month = String(slot.date.getMonth() + 1).padStart(2, '0');
+        const day = String(slot.date.getDate()).padStart(2, '0');
+        
+        return {
+          ...slot,
+          date: `${year}-${month}-${day}`
+        };
+      }),
     });
   } catch (error) {
     console.error("Error fetching time slots:", error);

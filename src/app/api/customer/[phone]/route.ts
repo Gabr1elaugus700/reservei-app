@@ -1,36 +1,40 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-// GET /api/bookings/customer - List customers
+// GET /api/customer/[phone] - Find customer by phone/WhatsApp
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ phone: string }> }
 ) {
- const { phone } = await params;
- const whatsapp = phone;
+  const { phone } = await params;
 
-  if (!whatsapp) {
+  if (!phone) {
     return NextResponse.json(
-      { error: "WhatsApp é obrigatório" },
+      { error: "Telefone é obrigatório" },
       { status: 400 }
     );
   }
 
   try {
-    // TODO: Aqui você vai buscar no seu banco de dados
-    // Por enquanto, simulando uma busca
-    const clientesMock = [
-      { whatsapp: "11999999999", nome: "João Silva", id: "1" },
-      { whatsapp: "11988888888", nome: "Maria Santos", id: "2" },
-    ];
+    // Buscar cliente no banco de dados pelo telefone
+    const customer = await prisma.customer.findFirst({
+      where: { phone },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        createdAt: true,
+      },
+    });
 
-    const cliente = clientesMock.find((c) => c.whatsapp === whatsapp);
-
-    if (cliente) {
+    if (customer) {
       return NextResponse.json({
         found: true,
-        name: cliente.nome,
-        id: cliente.id,
+        name: customer.name,
+        id: customer.id,
+        email: customer.email,
+        whatsapp: customer.phone, // Retorna como whatsapp para compatibilidade com frontend
       });
     }
 
@@ -38,6 +42,7 @@ export async function GET(
       found: false,
     });
   } catch (error) {
+    console.error("Error finding customer:", error);
     return NextResponse.json(
       { error: "Erro ao buscar cliente" },
       { status: 500 }

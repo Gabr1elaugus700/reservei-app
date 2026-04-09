@@ -156,10 +156,10 @@ model Booking {
     children   Int
     totalPrice Decimal?      @db.Decimal(10, 2)
 
-    createdAt  DateTime  @default(now())
-    updatedAt  DateTime  @updatedAt
-        timeSlot   TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
-        timeSlotId String
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+    timeSlot   TimeSlot @relation(fields: [timeSlotId], references: [id], onDelete: Restrict)
+    timeSlotId String
 
     @@index([date])
 }
@@ -184,9 +184,9 @@ model AvailabilityConfig {
     capacityPerSlot     Int     @default(20) // capacidade por slot
     isException         Boolean @default(false) // se true, substitui configurações regulares
     isActive            Boolean @default(true)
-    
+
     // Períodos de pausa (JSON array)
-    breakPeriods Json    @default("[]")
+    breakPeriods Json @default("[]")
 
     timeSlots TimeSlot[]
     createdAt DateTime   @default(now())
@@ -194,17 +194,17 @@ model AvailabilityConfig {
 }
 
 model TimeSlot {
-    id                   String   @id @default(cuid())
+    id                   String  @id @default(cuid())
     availabilityConfigId String?
-    
+
     dayOfWeek Int? // 0-6 para slots regulares
     date      DateTime? @db.Date // data específica para exceções
-    
+
     startTime String // "09:00"
     endTime   String // "18:00"
-    
-    totalCapacity     Int @default(1) // capacidade total do slot
-    availableCapacity Int @default(1) // capacidade disponível
+
+    totalCapacity     Int     @default(1) // capacidade total do slot
+    availableCapacity Int     @default(1) // capacidade disponível
     isAvailable       Boolean @default(true)
 
     availabilityConfig AvailabilityConfig? @relation(fields: [availabilityConfigId], references: [id], onDelete: Cascade)
@@ -218,6 +218,6 @@ model TimeSlot {
 }
 
 model LastConfigSync {
-    id        String   @id @default(cuid())
-    syncedAt  DateTime @default(now())
+    id       String   @id @default(cuid())
+    syncedAt DateTime @default(now())
 }

@@ -16,7 +16,7 @@ const syncTimeSchema = z.object({
 });
 
 // PUT /api/availability-configs/:id - Update availability config
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
     try {
         const user = await getCurrentUser();
         if (!user) {
@@ -25,10 +25,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
                 { status: 401 }
             );
         }
+        const { id } = await params;
         const body = await request.json();
         const parsedData = syncTimeSchema.parse(body);
         const updatedSync = await prisma.lastConfigSync.update({
-            where: { id: params.id },
+            where: { id },
             data: {
                 syncedAt: parsedData.syncedAt,
             },
