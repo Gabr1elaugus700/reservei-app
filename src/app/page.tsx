@@ -8,7 +8,12 @@ import { BookingCalendar } from "@/components/BookingCalendar";
 import { Input } from "@/components/ui/input";
 import TimeSlot from "@/components/TimeSlot";
 import { useTimeSlots } from "@/hooks/use-timeslots";
+import { calculateTotalPrice, toIsoDate } from "@/lib/booking-display";
 import { normalizePhone } from "@/lib/phone";
+import {
+  BookingConfirmation,
+  isMobileConfirmationViewport,
+} from "@/components/BookingConfirmation";
 
 interface Visitors {
   childrens: number;
@@ -47,6 +52,15 @@ const Index = () => {
   // Visitors count
   const [adultsCount, setAdultsCount] = useState(1);
   const [childrensCount, setChildrensCount] = useState(0);
+  const [confirmation, setConfirmation] = useState<{
+    responsibleName: string;
+    whatsapp: string;
+    isoDate: string;
+    time: string;
+    adults: number;
+    children: number;
+    totalPrice: number;
+  } | null>(null);
 
   // Function to add or remove visitors
   const sumAdults = () => setAdultsCount(adultsCount + 1);
@@ -138,8 +152,21 @@ const Index = () => {
     customerId,
   ]);
 
+  const resetForm = () => {
+    setSelectedDate(null);
+    setSelectedTimeSlotId("");
+    setAdultsCount(1);
+    setChildrensCount(0);
+    setWhatsappNumber("");
+    setResponsibleName("");
+    setCustomerId("");
+    setIsCustomerFound(false);
+    setShowNameField(false);
+  };
+
   const handleBooking = async () => {
-    if (!selectedDate || !selectedTimeSlotId || !visitors.length) {
+    const bookingDate = selectedDate;
+    if (!bookingDate || !selectedTimeSlotId || !visitors.length) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
@@ -197,7 +224,8 @@ const Index = () => {
         return;
       }
 
-      const totalPrice = adultsCount * 10 + childrensCount * 5;
+      const totalPrice = calculateTotalPrice(adultsCount, childrensCount);
+      const isoDate = toIsoDate(bookingDate);
 
       const response = await fetch("/api/bookings", {
         method: "POST",
@@ -207,7 +235,7 @@ const Index = () => {
         body: JSON.stringify({
           timeSlotId: selectedTimeSlotId,
           customerId: finalCustomerId,
-          date: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
+          date: isoDate,
           time: selectedSlot.startTime,
           adults: adultsCount,
           children: childrensCount,
@@ -221,18 +249,22 @@ const Index = () => {
         throw new Error(result.message || "Erro ao criar agendamento");
       }
 
-      toast.success("Agendamento realizado com sucesso!");
+      const snapshot = {
+        responsibleName,
+        whatsapp: phone,
+        isoDate,
+        time: selectedSlot.startTime,
+        adults: adultsCount,
+        children: childrensCount,
+        totalPrice,
+      };
 
-      // Limpar formulário
-      setSelectedDate(null);
-      setSelectedTimeSlotId("");
-      setAdultsCount(1);
-      setChildrensCount(0);
-      setWhatsappNumber("");
-      setResponsibleName("");
-      setCustomerId("");
-      setIsCustomerFound(false);
-      setShowNameField(false);
+      if (isMobileConfirmationViewport()) {
+        setConfirmation(snapshot);
+      } else {
+        toast.success("Agendamento realizado com sucesso!");
+        resetForm();
+      }
     } catch (error) {
       console.error("Error creating booking:", error);
       toast.error(
@@ -244,7 +276,8 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen relative">
+    <>
+    <div className="min-h-screen relative" inert={confirmation ? true : undefined}>
       {/* Background com textura de uvas */}
       <div className="fixed inset-0 -z-10">
         <Image
@@ -457,6 +490,16 @@ const Index = () => {
         </Button>
       </main>
     </div>
+    {confirmation ? (
+      <BookingConfirmation
+        {...confirmation}
+        onClose={() => {
+          setConfirmation(null);
+          resetForm();
+        }}
+      />
+    ) : null}
+    </>
   );
 };
 
