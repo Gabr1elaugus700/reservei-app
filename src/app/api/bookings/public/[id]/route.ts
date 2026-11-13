@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BookingStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeStoredCustomerPhone } from "@/lib/customers";
+import { isCounterCustomerId } from "@/lib/counter-customer";
 import { normalizePhone } from "@/lib/phone";
 import { calculateTotalPrice } from "@/lib/booking-display";
 import { planCapacityAdjustment, type CapacityPlan } from "@/lib/booking-check";
@@ -189,7 +190,11 @@ export async function PATCH(
         },
       });
 
-      if (!current || normalizePhone(current.customer.phone) !== phone) {
+      if (
+        !current ||
+        isCounterCustomerId(current.customer.id) ||
+        normalizePhone(current.customer.phone) !== phone
+      ) {
         throw new PublicBookingError("Agendamento não encontrado", 404);
       }
 

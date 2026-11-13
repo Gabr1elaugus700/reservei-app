@@ -1,9 +1,28 @@
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcrypt";
+import {
+  COUNTER_CUSTOMER_ID,
+  COUNTER_CUSTOMER_NAME,
+} from "../src/lib/counter-customer";
 
 const prisma = new PrismaClient();
 
+async function ensureCounterCustomer() {
+  await prisma.customer.upsert({
+    where: { id: COUNTER_CUSTOMER_ID },
+    update: {},
+    create: {
+      id: COUNTER_CUSTOMER_ID,
+      name: COUNTER_CUSTOMER_NAME,
+      phone: null,
+    },
+  });
+  console.log("✅ Cliente balcão pronto");
+}
+
 async function main() {
+  await ensureCounterCustomer();
+
   console.log("🌱 Criando usuário administrador...");
 
   const adminEmail = "admin@reservei.com";

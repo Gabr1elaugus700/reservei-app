@@ -1,9 +1,12 @@
 "use client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { CircleMinus, Plus, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { calculateTotalPrice, toIsoDate } from "@/lib/booking-display";
+import { formatDate } from "@/lib/format-date";
 import { normalizePhone } from "@/lib/phone";
 
 interface NewBookingFormProps {
@@ -30,6 +33,10 @@ export function NewBookingForm({
   const [adultsCount, setAdultsCount] = useState(1);
   const [childrensCount, setChildrensCount] = useState(0);
   const [isBookingLoading, setIsBookingLoading] = useState(false);
+  const [isCounter, setIsCounter] = useState(false);
+  const [nickname, setNickname] = useState("");
+
+  const totalPrice = calculateTotalPrice(adultsCount, childrensCount);
 
   const handleWhatsappChange = (value: string) => {
     setWhatsappNumber(value);
@@ -81,17 +88,35 @@ export function NewBookingForm({
     }
   };
 
+  const handleCounterChange = (checked: boolean) => {
+    setIsCounter(checked);
+    if (checked) {
+      setWhatsappNumber("");
+      setResponsibleName("");
+      setShowNameField(false);
+      setIsCustomerFound(false);
+      setCustomerId("");
+      return;
+    }
+    setNickname("");
+  };
+
   const handleSubmit = async () => {
+    if (adultsCount < 1) {
+      toast.error("Pelo menos 1 adulto é obrigatório");
+      return;
+    }
+
+    if (isCounter) {
+      await createCounterBooking();
+      return;
+    }
+
     const phone = normalizePhone(whatsappNumber);
     if (!responsibleName || !phone) {
       toast.error(
         phone ? "Preencha os dados do responsável" : "Número de WhatsApp inválido"
       );
-      return;
-    }
-
-    if (adultsCount < 1) {
-      toast.error("Pelo menos 1 adulto é obrigatório");
       return;
     }
 
@@ -130,8 +155,6 @@ export function NewBookingForm({
         }
       }
 
-      const totalPrice = adultsCount * 10 + childrensCount * 5;
-
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: {
@@ -140,11 +163,11 @@ export function NewBookingForm({
         body: JSON.stringify({
           timeSlotId: slotId,
           customerId: finalCustomerId,
-          date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+          date: toIsoDate(date),
           time: slotTime,
           adults: adultsCount,
           children: childrensCount,
-          totalPrice: totalPrice,
+          totalPrice,
         }),
       });
 
@@ -158,6 +181,45 @@ export function NewBookingForm({
       onSuccess();
     } catch (error) {
       console.error("Error creating booking:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao criar agendamento"
+      );
+    } finally {
+      setIsBookingLoading(false);
+    }
+  };
+
+  const createCounterBooking = async () => {
+    try {
+      setIsBookingLoading(true);
+
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          counter: true,
+          timeSlotId: slotId,
+          date: toIsoDate(date),
+          time: slotTime,
+          adults: adultsCount,
+          children: childrensCount,
+          totalPrice,
+          notes: nickname.trim() || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || "Erro ao criar agendamento");
+      }
+
+      toast.success("Agendamento de balcão criado!");
+      onSuccess();
+    } catch (error) {
+      console.error("Error creating counter booking:", error);
       toast.error(
         error instanceof Error ? error.message : "Erro ao criar agendamento"
       );
@@ -180,39 +242,81 @@ export function NewBookingForm({
         </Button>
       </div>
 
-      {/* WhatsApp */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">WhatsApp</label>
-        <div className="flex gap-2">
-          <Input
-            type="tel"
-            placeholder="(00) 00000-0000"
-            value={whatsappNumber}
-            onChange={(e) => handleWhatsappChange(e.target.value)}
-            onBlur={handleWhatsappBlur}
-            disabled={isLoadingCustomer}
-            className="flex-1"
-          />
-          {isLoadingCustomer && (
-            <Loader2 className="h-5 w-5 animate-spin text-primary" />
-          )}
-        </div>
-      </div>
+      <p className="text-sm text-blue-900">
+        {formatDate(toIsoDate(date))} às {slotTime}
+      </p>
 
-      {/* Nome */}
-      {showNameField && (
+      <label className="flex items-start gap-3 rounded-lg border border-blue-200 bg-white p-3">
+        <Checkbox
+          id="agendamento-balcao"
+          checked={isCounter}
+          onCheckedChange={(checked) => handleCounterChange(checked === true)}
+          disabled={isBookingLoading}
+          className="mt-0.5"
+        />
+        <span className="space-y-1">
+          <span className="block text-sm font-medium text-blue-950">
+            Agendamento no balcão
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            Para quem chegou sem reserva. Não pede WhatsApp nem nome.
+          </span>
+        </span>
+      </label>
+
+      {isCounter ? (
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            Nome do Responsável {isCustomerFound && "(Cliente Cadastrado)"}
+          <label className="text-sm font-medium" htmlFor="apelido-balcao">
+            Apelido ou observação
           </label>
           <Input
+            id="apelido-balcao"
             type="text"
-            placeholder="Nome completo"
-            value={responsibleName}
-            onChange={(e) => setResponsibleName(e.target.value)}
-            disabled={isCustomerFound}
+            placeholder="Ex.: família Silva"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+            maxLength={120}
+            disabled={isBookingLoading}
           />
+          <p className="text-xs text-muted-foreground">
+            Opcional. Aparece na lista do dia junto com Balcão.
+          </p>
         </div>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">WhatsApp</label>
+            <div className="flex gap-2">
+              <Input
+                type="tel"
+                placeholder="(00) 00000-0000"
+                value={whatsappNumber}
+                onChange={(e) => handleWhatsappChange(e.target.value)}
+                onBlur={handleWhatsappBlur}
+                disabled={isLoadingCustomer}
+                className="flex-1"
+              />
+              {isLoadingCustomer && (
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              )}
+            </div>
+          </div>
+
+          {showNameField && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Nome do Responsável {isCustomerFound && "(Cliente Cadastrado)"}
+              </label>
+              <Input
+                type="text"
+                placeholder="Nome completo"
+                value={responsibleName}
+                onChange={(e) => setResponsibleName(e.target.value)}
+                disabled={isCustomerFound}
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* Visitantes */}
@@ -277,7 +381,7 @@ export function NewBookingForm({
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium">Total:</span>
           <span className="text-lg font-bold text-green-600">
-            R$ {(adultsCount * 10 + childrensCount * 5).toFixed(2)}
+            R$ {totalPrice.toFixed(2)}
           </span>
         </div>
       </div>
@@ -294,7 +398,7 @@ export function NewBookingForm({
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={isBookingLoading || !showNameField}
+          disabled={isBookingLoading || (!isCounter && !showNameField)}
           className="flex-1"
         >
           {isBookingLoading ? (

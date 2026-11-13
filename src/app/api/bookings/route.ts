@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
 import { normalizeStoredCustomerPhone } from "@/lib/customers";
+import {
+  counterCustomerStore,
+  isCounterCustomerId,
+  normalizeCounterNotes,
+  resolveBookingCustomer,
+} from "@/lib/counter-customer";
 
-// GET /api/bookings/[date]
+// GET /api/bookings?date=YYYY-MM-DD
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
@@ -33,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Criar data sem timezone: extrair ano, mês, dia e criar Date local
-    const [year, month, day] = dateParam.split('-').map(Number);
+    const [year, month, day] = dateParam.split("-").map(Number);
     const date = new Date(year, month - 1, day); // month é 0-indexed
 
     // Buscar bookings
@@ -45,7 +51,7 @@ export async function GET(request: NextRequest) {
         customer: true,
       },
       orderBy: {
-        time: 'asc',
+        time: "asc",
       },
     });
 
@@ -53,22 +59,24 @@ export async function GET(request: NextRequest) {
       success: true,
       data: bookings.map((booking) => {
         // Formatar data sem conversão de timezone
-        const year = booking.date.getFullYear();
-        const month = String(booking.date.getMonth() + 1).padStart(2, '0');
-        const day = String(booking.date.getDate()).padStart(2, '0');
-        
+        const bookingYear = booking.date.getFullYear();
+        const bookingMonth = String(booking.date.getMonth() + 1).padStart(2, "0");
+        const bookingDay = String(booking.date.getDate()).padStart(2, "0");
+        const counter = isCounterCustomerId(booking.customer.id);
+
         return {
           id: booking.id,
           name: booking.customer.name,
-          phone: booking.customer.phone,
-          date: `${year}-${month}-${day}`,
+          phone: counter ? "" : (booking.customer.phone ?? ""),
+          date: `${bookingYear}-${bookingMonth}-${bookingDay}`,
           time: booking.time,
           adults: booking.adults,
           children: booking.children,
           totalPrice: booking.totalPrice ? Number(booking.totalPrice) : 0,
           status: booking.status,
           notes: booking.notes,
-          timeSlotId: booking.timeSlotId, // ← Retornar timeSlotId para o frontend
+          timeSlotId: booking.timeSlotId,
+          isCounter: counter,
         };
       }),
     });
@@ -81,33 +89,78 @@ export async function GET(request: NextRequest) {
   }
 }
 
-  // POST /api/bookings
-  export async function POST(request: NextRequest) {
-    try {
-      const body = await request.json();
-      const { timeSlotId, customerId, date, time, adults, children, totalPrice, notes } = body;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-      // Validação básica
-      if (!timeSlotId || !customerId || !date || !time) {
-        return NextResponse.json(
-          { success: false, message: "Missing required fields: timeSlotId, customerId, date, time" },
-          { status: 400 }
-        );
-      }
+function readOptionalNotes(value: unknown): string | null | undefined {
+  if (typeof value === "string") return value;
+  if (value === null) return null;
+  return undefined;
+}
 
-    if (!adults || adults < 1) {
+// POST /api/bookings
+export async function POST(request: NextRequest) {
+  try {
+    const payload: unknown = await request.json();
+    const body = isRecord(payload) ? payload : {};
+    const counter = body.counter === true;
+    const timeSlotId = typeof body.timeSlotId === "string" ? body.timeSlotId : "";
+    const date = typeof body.date === "string" ? body.date : "";
+    const time = typeof body.time === "string" ? body.time : "";
+    const adults = typeof body.adults === "number" ? body.adults : Number.NaN;
+    const children = typeof body.children === "number" ? body.children : 0;
+    const totalPrice = typeof body.totalPrice === "number" ? body.totalPrice : undefined;
+
+    if (!timeSlotId || !date || !time || (!counter && !body.customerId)) {
+      return NextResponse.json(
+        { success: false, message: "Missing required fields: timeSlotId, customerId, date, time" },
+        { status: 400 }
+      );
+    }
+
+    if (!Number.isInteger(adults) || adults < 1) {
       return NextResponse.json(
         { success: false, message: "At least 1 adult is required" },
         { status: 400 }
       );
     }
 
-    // Apenas adultos contam para capacidade (crianças são apenas pagantes)
-    const capacityNeeded = adults;
+    const user = await getCurrentUser();
+    const resolved = await resolveBookingCustomer(
+      {
+        counter,
+        hasSession: user !== null,
+        customerId: body.customerId,
+      },
+      counterCustomerStore(prisma)
+    );
 
-    // Usar transação para garantir atomicidade
+    if (!resolved.ok) {
+      return NextResponse.json(
+        { success: false, message: resolved.message },
+        { status: resolved.status }
+      );
+    }
+
+    let notes = readOptionalNotes(body.notes);
+    if (resolved.counter) {
+      const parsedNotes = normalizeCounterNotes(body.notes);
+      if (!parsedNotes.ok) {
+        return NextResponse.json(
+          { success: false, message: parsedNotes.message },
+          { status: 400 }
+        );
+      }
+      notes = parsedNotes.notes;
+    }
+
+    // Apenas adultos contam para capacidade (crianças são apenas pagantes).
+    // Balcão usa a mesma regra e a mesma transação dos outros agendamentos.
+    const capacityNeeded = adults;
+    const customerId = resolved.customerId;
+
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Verificar se o slot existe e tem capacidade
       const timeSlot = await tx.timeSlot.findUnique({
         where: { id: timeSlotId },
       });
@@ -120,19 +173,20 @@ export async function GET(request: NextRequest) {
         throw new Error(`Time slot does not have enough capacity. Available: ${timeSlot.availableCapacity}, Required: ${capacityNeeded}`);
       }
 
-      await normalizeStoredCustomerPhone(tx, customerId);
-      
-      // 2. Criar o booking com data sem timezone
-      const [year, month, day] = date.split('-').map(Number);
+      if (!resolved.counter) {
+        await normalizeStoredCustomerPhone(tx, customerId);
+      }
+
+      const [year, month, day] = date.split("-").map(Number);
       const bookingDate = new Date(year, month - 1, day);
-      
+
       const booking = await tx.booking.create({
         data: {
           customerId,
           date: bookingDate,
           time,
-          adults: adults || 0,
-          children: children || 0,
+          adults,
+          children,
           totalPrice,
           notes,
           timeSlotId,
@@ -143,7 +197,6 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      // 3. Decrementar a capacidade disponível apenas por adultos
       await tx.timeSlot.update({
         where: { id: timeSlotId },
         data: {
@@ -156,20 +209,20 @@ export async function GET(request: NextRequest) {
       return booking;
     });
 
-      return NextResponse.json({
-        success: true,
-        message: "Booking created successfully",
-        data: {
-          id: result.id,
-          customer: result.customer.name,
-          date: `${result.date.getFullYear()}-${String(result.date.getMonth() + 1).padStart(2, '0')}-${String(result.date.getDate()).padStart(2, '0')}`,
-          time: result.time,
-          status: result.status,
-        },
-      }, { status: 201 });
-    } catch (error) {
-      console.error("Error creating booking:", error);
-    
+    return NextResponse.json({
+      success: true,
+      message: "Booking created successfully",
+      data: {
+        id: result.id,
+        customer: result.customer.name,
+        date: `${result.date.getFullYear()}-${String(result.date.getMonth() + 1).padStart(2, "0")}-${String(result.date.getDate()).padStart(2, "0")}`,
+        time: result.time,
+        status: result.status,
+      },
+    }, { status: 201 });
+  } catch (error) {
+    console.error("Error creating booking:", error);
+
     if (error instanceof Error) {
       if (error.message === "Time slot not found") {
         return NextResponse.json(
@@ -183,9 +236,11 @@ export async function GET(request: NextRequest) {
           { status: 409 }
         );
       }
-    }      return NextResponse.json(
-        { success: false, message: "Internal Server Error" },
-        { status: 500 }
-      );
     }
+
+    return NextResponse.json(
+      { success: false, message: "Internal Server Error" },
+      { status: 500 }
+    );
   }
+}

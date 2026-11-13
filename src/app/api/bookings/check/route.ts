@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { BookingStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { findCustomersByPhone } from "@/lib/customers";
+import { isCounterCustomerId } from "@/lib/counter-customer";
 import { normalizePhone } from "@/lib/phone";
 import { calculateTotalPrice } from "@/lib/booking-display";
 import { selectActiveBooking } from "@/lib/booking-check";
@@ -48,7 +49,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const customers = await findCustomersByPhone(normalizedPhone);
+    const customers = (await findCustomersByPhone(normalizedPhone)).filter(
+      (customer) => !isCounterCustomerId(customer.id)
+    );
     if (customers.length === 0) {
       return NextResponse.json({
         success: true,
