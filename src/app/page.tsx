@@ -8,6 +8,46 @@ import { BookingCalendar } from "@/components/BookingCalendar";
 import { Input } from "@/components/ui/input";
 import TimeSlot from "@/components/TimeSlot";
 import { useTimeSlots } from "@/hooks/use-timeslots";
+import { calculateTotalPrice, toIsoDate } from "@/lib/booking-display";
+import { normalizePhone } from "@/lib/phone";
+import type { PublicBookingSummary } from "@/lib/booking-check";
+import {
+  BookingRequestError,
+  checkDuplicateBooking,
+  createBooking,
+  ensureCustomer,
+  updatePublicBooking,
+  type BookingDraft,
+} from "@/lib/public-booking-client";
+import {
+  BookingConfirmation,
+  isMobileConfirmationViewport,
+} from "@/components/BookingConfirmation";
+import { DuplicateBookingSheet } from "@/components/DuplicateBookingSheet";
+
+type ConfirmationState = {
+  mode: "created" | "updated";
+  responsibleName: string;
+  whatsapp: string;
+  isoDate: string;
+  time: string;
+  adults: number;
+  childCount: number;
+  totalPrice: number;
+  previous?: {
+    isoDate: string;
+    time: string;
+    adults: number;
+    childCount: number;
+    totalPrice: number;
+  };
+};
+
+type DuplicateAlertState = {
+  sameSlot: boolean;
+  existing: PublicBookingSummary;
+  draft: BookingDraft;
+};
 
 interface Visitors {
   childrens: number;
@@ -46,6 +86,9 @@ const Index = () => {
   // Visitors count
   const [adultsCount, setAdultsCount] = useState(1);
   const [childrensCount, setChildrensCount] = useState(0);
+  const [confirmation, setConfirmation] = useState<ConfirmationState | null>(null);
+  const [duplicateAlert, setDuplicateAlert] = useState<DuplicateAlertState | null>(null);
+  const [pendingAction, setPendingAction] = useState<"update" | "create" | null>(null);
 
   // Function to add or remove visitors
   const sumAdults = () => setAdultsCount(adultsCount + 1);
@@ -67,11 +110,12 @@ const Index = () => {
   };
 
   const handleWhatsappBlur = async () => {
-    // Validar Whatsapp (mínimo 10 dígitos)
-    const numbersOnly = whatsappNumber.replace(/\D/g, "");
+    const phone = normalizePhone(whatsappNumber);
 
-    if (numbersOnly.length < 10) {
-      toast.error("Número de WhatsApp inválido");
+    if (!phone) {
+      if (whatsappNumber.trim()) {
+        toast.error("Número de WhatsApp inválido");
+      }
       return;
     }
 
@@ -79,7 +123,7 @@ const Index = () => {
 
     try {
       const response = await fetch(
-        `/api/customer?phone=${encodeURIComponent(whatsappNumber)}`
+        `/api/customer?phone=${encodeURIComponent(phone)}`
       );
       const result = await response.json();
 
@@ -136,100 +180,196 @@ const Index = () => {
     customerId,
   ]);
 
+  const resetForm = () => {
+    setSelectedDate(null);
+    setSelectedTimeSlotId("");
+    setAdultsCount(1);
+    setChildrensCount(0);
+    setWhatsappNumber("");
+    setResponsibleName("");
+    setCustomerId("");
+    setIsCustomerFound(false);
+    setShowNameField(false);
+  };
+
+  const presentSuccess = (next: ConfirmationState) => {
+    setDuplicateAlert(null);
+    setPendingAction(null);
+    if (isMobileConfirmationViewport()) {
+      setConfirmation(next);
+      return;
+    }
+
+    toast.success(
+      next.mode === "updated"
+        ? "Agendamento atualizado!"
+        : "Agendamento realizado com sucesso!"
+    );
+    resetForm();
+  };
+
+  const buildDraft = (
+    bookingDate: Date,
+    phone: string,
+    finalCustomerId: string
+  ): BookingDraft | null => {
+    const selectedSlot = timeSlots.find((slot) => slot.id === selectedTimeSlotId);
+    if (!selectedSlot) {
+      toast.error("Slot selecionado inválido");
+      return null;
+    }
+
+    return {
+      customerId: finalCustomerId,
+      timeSlotId: selectedTimeSlotId,
+      isoDate: toIsoDate(bookingDate),
+      time: selectedSlot.startTime,
+      adults: adultsCount,
+      children: childrensCount,
+      totalPrice: calculateTotalPrice(adultsCount, childrensCount),
+      responsibleName,
+      whatsapp: phone,
+    };
+  };
+
   const handleBooking = async () => {
-    if (!selectedDate || !selectedTimeSlotId || !visitors.length) {
+    const bookingDate = selectedDate;
+    if (!bookingDate || !selectedTimeSlotId || !visitors.length) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
-    if (!responsibleName || !whatsappNumber) {
-      toast.error("Preencha os dados do responsável");
+    const phone = normalizePhone(whatsappNumber);
+    if (!responsibleName || !phone) {
+      toast.error(
+        phone ? "Preencha os dados do responsável" : "Número de WhatsApp inválido"
+      );
       return;
     }
 
     try {
       setIsBookingLoading(true);
 
-      // Se não houver customerId, criar novo customer
-      let finalCustomerId = customerId;
-      if (!finalCustomerId) {
-        const customerResponse = await fetch("/api/customer", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: responsibleName,
-            phone: whatsappNumber,
-          }),
-        });
-
-        const customerResult = await customerResponse.json();
-
-        if (!customerResponse.ok || !customerResult.success) {
-          throw new Error(customerResult.message || "Erro ao criar cliente");
-        }
-
-        finalCustomerId = customerResult.data.id;
+      const finalCustomerId = await ensureCustomer({
+        customerId,
+        name: responsibleName,
+        phone,
+      });
+      if (finalCustomerId !== customerId) {
         setCustomerId(finalCustomerId);
       }
 
-      const selectedSlot = timeSlots.find(
-        (slot) => slot.id === selectedTimeSlotId
-      );
-      if (!selectedSlot) {
-        toast.error("Slot selecionado inválido");
+      const draft = buildDraft(bookingDate, phone, finalCustomerId);
+      if (!draft) return;
+
+      const existing = await checkDuplicateBooking({
+        phone,
+        isoDate: draft.isoDate,
+        timeSlotId: draft.timeSlotId,
+      });
+
+      if (existing.booking) {
+        setDuplicateAlert({
+          sameSlot: existing.sameSlot,
+          existing: existing.booking,
+          draft,
+        });
         return;
       }
 
-      const totalPrice = adultsCount * 10 + childrensCount * 5;
-
-      const response = await fetch("/api/bookings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          timeSlotId: selectedTimeSlotId,
-          customerId: finalCustomerId,
-          date: `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`,
-          time: selectedSlot.startTime,
-          adults: adultsCount,
-          children: childrensCount,
-          totalPrice: totalPrice,
-        }),
+      await createBooking(draft);
+      presentSuccess({
+        mode: "created",
+        responsibleName: draft.responsibleName,
+        whatsapp: draft.whatsapp,
+        isoDate: draft.isoDate,
+        time: draft.time,
+        adults: draft.adults,
+        childCount: draft.children,
+        totalPrice: draft.totalPrice,
       });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || "Erro ao criar agendamento");
-      }
-
-      toast.success("Agendamento realizado com sucesso!");
-
-      // Limpar formulário
-      setSelectedDate(null);
-      setSelectedTimeSlotId("");
-      setAdultsCount(1);
-      setChildrensCount(0);
-      setWhatsappNumber("");
-      setResponsibleName("");
-      setCustomerId("");
-      setIsCustomerFound(false);
-      setShowNameField(false);
     } catch (error) {
       console.error("Error creating booking:", error);
       toast.error(
-        error instanceof Error ? error.message : "Erro ao criar agendamento"
+        error instanceof BookingRequestError
+          ? error.message
+          : "Erro ao criar agendamento"
       );
     } finally {
       setIsBookingLoading(false);
     }
   };
 
+  const handleUpdateExisting = async () => {
+    if (!duplicateAlert || pendingAction) return;
+
+    try {
+      setPendingAction("update");
+      const updated = await updatePublicBooking(
+        duplicateAlert.existing.id,
+        duplicateAlert.draft
+      );
+      presentSuccess({
+        mode: "updated",
+        responsibleName: duplicateAlert.draft.responsibleName,
+        whatsapp: duplicateAlert.draft.whatsapp,
+        isoDate: updated.date,
+        time: updated.time,
+        adults: updated.adults,
+        childCount: updated.children,
+        totalPrice: updated.totalPrice,
+        previous: {
+          isoDate: duplicateAlert.existing.date,
+          time: duplicateAlert.existing.time,
+          adults: duplicateAlert.existing.adults,
+          childCount: duplicateAlert.existing.children,
+          totalPrice: duplicateAlert.existing.totalPrice,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating booking:", error);
+      toast.error(
+        error instanceof BookingRequestError
+          ? error.message
+          : "Erro ao atualizar agendamento"
+      );
+      setPendingAction(null);
+    }
+  };
+
+  const handleCreateAnother = async () => {
+    if (!duplicateAlert || pendingAction) return;
+
+    try {
+      setPendingAction("create");
+      await createBooking(duplicateAlert.draft);
+      presentSuccess({
+        mode: "created",
+        responsibleName: duplicateAlert.draft.responsibleName,
+        whatsapp: duplicateAlert.draft.whatsapp,
+        isoDate: duplicateAlert.draft.isoDate,
+        time: duplicateAlert.draft.time,
+        adults: duplicateAlert.draft.adults,
+        childCount: duplicateAlert.draft.children,
+        totalPrice: duplicateAlert.draft.totalPrice,
+      });
+    } catch (error) {
+      console.error("Error creating another booking:", error);
+      toast.error(
+        error instanceof BookingRequestError
+          ? error.message
+          : "Erro ao criar agendamento"
+      );
+      setPendingAction(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen relative">
+    <>
+    <div
+      className="min-h-screen relative"
+      inert={confirmation || duplicateAlert ? true : undefined}
+    >
       {/* Background com textura de uvas */}
       <div className="fixed inset-0 -z-10">
         <Image
@@ -442,6 +582,34 @@ const Index = () => {
         </Button>
       </main>
     </div>
+    {duplicateAlert ? (
+      <DuplicateBookingSheet
+        sameSlot={duplicateAlert.sameSlot}
+        existing={duplicateAlert.existing}
+        draft={duplicateAlert.draft}
+        pendingAction={pendingAction}
+        onUpdate={() => {
+          void handleUpdateExisting();
+        }}
+        onCreateAnother={() => {
+          void handleCreateAnother();
+        }}
+        onCancel={() => {
+          if (pendingAction) return;
+          setDuplicateAlert(null);
+        }}
+      />
+    ) : null}
+    {confirmation ? (
+      <BookingConfirmation
+        {...confirmation}
+        onClose={() => {
+          setConfirmation(null);
+          resetForm();
+        }}
+      />
+    ) : null}
+    </>
   );
 };
 

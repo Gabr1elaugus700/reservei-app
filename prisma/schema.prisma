@@ -142,6 +142,8 @@ model Customer {
     updatedAt DateTime @updatedAt
 
     bookings Booking[]
+
+    @@index([phone])
 }
 
 model Booking {

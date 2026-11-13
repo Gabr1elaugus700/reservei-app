@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-service";
+import { normalizeStoredCustomerPhone } from "@/lib/customers";
 
 // GET /api/bookings/[date]
 export async function GET(request: NextRequest) {
@@ -118,6 +119,8 @@ export async function GET(request: NextRequest) {
       if (timeSlot.availableCapacity < capacityNeeded) {
         throw new Error(`Time slot does not have enough capacity. Available: ${timeSlot.availableCapacity}, Required: ${capacityNeeded}`);
       }
+
+      await normalizeStoredCustomerPhone(tx, customerId);
       
       // 2. Criar o booking com data sem timezone
       const [year, month, day] = date.split('-').map(Number);

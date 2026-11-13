@@ -222,7 +222,7 @@ export function useBookings(initialDate?: Date) {
 
   const findNextDayWithSlots = async (direction: "forward" | "backward") => {
     // Criar nova data a partir de currentDate
-    let testDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+    const testDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
     let attempts = 0;
     const maxAttempts = 30; // Evitar loop infinito
 
