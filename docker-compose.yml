@@ -3,32 +3,50 @@ services:
     image: postgres:15-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-reservei}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reservei}
-      POSTGRES_DB: ${POSTGRES_DB:-reservei}
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB no .env}
       TZ: America/Sao_Paulo
       PGTZ: America/Sao_Paulo
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     networks:
       - app-network
 
   web:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?Defina NEXT_PUBLIC_APP_URL no .env}
+        NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN:?Defina NEXT_PUBLIC_BASE_DOMAIN no .env}
+        NEXT_PUBLIC_ADMIN_SUBDOMAIN: ${NEXT_PUBLIC_ADMIN_SUBDOMAIN:?Defina NEXT_PUBLIC_ADMIN_SUBDOMAIN no .env}
+        NEXT_PUBLIC_PUBLIC_SUBDOMAIN: ${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:?Defina NEXT_PUBLIC_PUBLIC_SUBDOMAIN no .env}
     image: app-reservei:latest
     restart: unless-stopped
     ports:
       - "3005:3000"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql://reservei:reservei@postgres:5432/reservei}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL:-https://reservas.app-reservei.com.br}
-      - NEXT_PUBLIC_BASE_DOMAIN=${NEXT_PUBLIC_BASE_DOMAIN:-app-reservei.com.br}
-      - NEXT_PUBLIC_ADMIN_SUBDOMAIN=${NEXT_PUBLIC_ADMIN_SUBDOMAIN:-app}
-      - NEXT_PUBLIC_PUBLIC_SUBDOMAIN=${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:-reservas}
-      - NODE_ENV=production
-      - TZ=America/Sao_Paulo
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no .env}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Defina BETTER_AUTH_SECRET no .env}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Defina BETTER_AUTH_URL no .env}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:?Defina NEXT_PUBLIC_APP_URL no .env}
+      NEXT_PUBLIC_BASE_DOMAIN: ${NEXT_PUBLIC_BASE_DOMAIN:?Defina NEXT_PUBLIC_BASE_DOMAIN no .env}
+      NEXT_PUBLIC_ADMIN_SUBDOMAIN: ${NEXT_PUBLIC_ADMIN_SUBDOMAIN:?Defina NEXT_PUBLIC_ADMIN_SUBDOMAIN no .env}
+      NEXT_PUBLIC_PUBLIC_SUBDOMAIN: ${NEXT_PUBLIC_PUBLIC_SUBDOMAIN:?Defina NEXT_PUBLIC_PUBLIC_SUBDOMAIN no .env}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:?Defina SEED_ADMIN_EMAIL no .env}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?Defina SEED_ADMIN_PASSWORD no .env}
+      SEED_ADMIN_NAME: ${SEED_ADMIN_NAME:-Administrador}
+      NODE_ENV: production
+      TZ: America/Sao_Paulo
     networks:
       - app-network
 
