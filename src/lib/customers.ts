@@ -1,5 +1,6 @@
 import type { Customer, Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { COUNTER_CUSTOMER_ID, isCounterCustomerId, omitCounterCustomer } from "@/lib/counter-customer";
 import { normalizePhone } from "@/lib/phone";
 
 type PhoneWriter = PrismaClient | Prisma.TransactionClient;
@@ -10,13 +11,17 @@ type PhoneWriter = PrismaClient | Prisma.TransactionClient;
  * Compara pelo telefone já normalizado e, em seguida, por linhas antigas que
  * ainda estão com máscara ou com 55. Assim a busca funciona antes e depois
  * da migration. Não funde cadastros: se houver mais de um, todos são devolvidos.
+ * O cliente balcão fica de fora, mesmo que o telefone dele deixe de ser nulo.
  */
 export async function findCustomersByPhone(phone: string): Promise<Customer[]> {
   const normalized = normalizePhone(phone);
   if (!normalized) return [];
 
   const exact = await prisma.customer.findMany({
-    where: { phone: normalized },
+    where: {
+      phone: normalized,
+      id: { not: COUNTER_CUSTOMER_ID },
+    },
     orderBy: { createdAt: "asc" },
   });
 
@@ -37,6 +42,7 @@ export async function findCustomersByPhone(phone: string): Promise<Customer[]> {
           regexp_replace("phone", '[^0-9]', '', 'g') AS digits
         FROM "Customer"
         WHERE "phone" IS NOT NULL
+          AND "id" <> ${COUNTER_CUSTOMER_ID}
           AND "phone" <> ${normalized}
       ) AS digits_only
     ) AS extracted
@@ -54,8 +60,10 @@ export async function findCustomersByPhone(phone: string): Promise<Customer[]> {
     where: { id: { in: missingIds } },
   });
 
-  return [...exact, ...legacyCustomers].sort(
-    (left, right) => left.createdAt.getTime() - right.createdAt.getTime()
+  return omitCounterCustomer(
+    [...exact, ...legacyCustomers].sort(
+      (left, right) => left.createdAt.getTime() - right.createdAt.getTime()
+    )
   );
 }
 
@@ -72,7 +80,7 @@ export async function normalizeStoredCustomerPhone(
     select: { id: true, phone: true },
   });
 
-  if (!customer?.phone) return;
+  if (!customer || isCounterCustomerId(customer.id) || !customer.phone) return;
 
   const normalized = normalizePhone(customer.phone);
   if (!normalized || normalized === customer.phone) return;

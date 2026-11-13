@@ -12,6 +12,10 @@
  */
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
+import {
+  isCounterCustomerId,
+  shouldNormalizeCustomerPhone,
+} from "../src/lib/counter-customer";
 import { normalizePhone } from "../src/lib/phone";
 
 type Row = {
@@ -60,7 +64,7 @@ async function main(): Promise<void> {
   const updates: Plan[] = [];
 
   for (const row of rows) {
-    if (!row.phone) continue;
+    if (!shouldNormalizeCustomerPhone(row) || !row.phone) continue;
 
     const normalized = normalizePhone(row.phone);
     const plan: Plan = {
@@ -86,7 +90,7 @@ async function main(): Promise<void> {
 
   const groups = new Map<string, Plan[]>();
   for (const row of rows) {
-    if (!row.phone) continue;
+    if (isCounterCustomerId(row.id) || !row.phone) continue;
     const key = normalizePhone(row.phone);
     if (!key) continue;
     const current = groups.get(key) ?? [];

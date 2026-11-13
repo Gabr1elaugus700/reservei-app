@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useBookings } from "@/hooks/bookingsHook";
 import { Input } from "@/components/ui/input";
 import { NewBookingForm } from "@/components/NewBookingForm";
+import { formatCounterBookingLabel } from "@/lib/booking-display";
 
 const BookingsList = () => {
   const {
@@ -99,6 +100,9 @@ const BookingsList = () => {
       alert(err instanceof Error ? err.message : "Erro ao confirmar visita");
     }
   };
+
+  const bookingTitle = (booking: { name: string; notes?: string; isCounter?: boolean }) =>
+    booking.isCounter ? formatCounterBookingLabel(booking.notes) : booking.name;
 
   const handleDelete = async (bookingId: string, customerName: string) => {
     if (!confirm(`Tem certeza que deseja excluir o agendamento de ${customerName}?`)) {
@@ -484,12 +488,23 @@ const BookingsList = () => {
                           <div className="flex justify-between items-start">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
-                                <h4 className="font-bold text-base">{booking.name}</h4>
+                                <h4 className="font-bold text-base">{bookingTitle(booking)}</h4>
+                                {booking.isCounter && (
+                                  <span className="px-2 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-900">
+                                    Balcão
+                                  </span>
+                                )}
                                 {getStatusBadge(booking.status)}
                               </div>
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {booking.phone}
-                              </p>
+                              {booking.isCounter ? (
+                                <p className="text-sm text-amber-800 mb-2">
+                                  Atendimento no balcão
+                                </p>
+                              ) : (
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {booking.phone}
+                                </p>
+                              )}
                               
                               {/* Modo de edição */}
                               {editingBookingId === booking.id ? (
@@ -574,7 +589,7 @@ const BookingsList = () => {
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    onClick={() => handleDelete(booking.id, booking.name)}
+                                    onClick={() => handleDelete(booking.id, bookingTitle(booking))}
                                     className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
                                   >
                                     <Trash2 className="h-4 w-4" />

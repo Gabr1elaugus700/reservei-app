@@ -12,6 +12,7 @@ export interface Booking {
   totalPrice: number;
   notes?: string;
   timeSlotId?: string;
+  isCounter?: boolean;
 }
 
 export interface TimeSlot {

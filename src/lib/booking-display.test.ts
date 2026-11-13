@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   calculateTotalPrice,
+  formatCounterBookingLabel,
   formatLongDate,
   formatShortSchedule,
   formatVisitors,
@@ -36,5 +37,13 @@ describe("formatLongDate", () => {
 describe("formatShortSchedule", () => {
   it("mostra dia, mês e hora para o botão de mover", () => {
     assert.equal(formatShortSchedule("2026-11-22", "10:00"), "22/11 às 10:00");
+  });
+});
+
+describe("formatCounterBookingLabel", () => {
+  it("identifica o balcão e acrescenta o apelido das notas", () => {
+    assert.equal(formatCounterBookingLabel(null), "Balcão");
+    assert.equal(formatCounterBookingLabel("   "), "Balcão");
+    assert.equal(formatCounterBookingLabel("família Silva"), "Balcão · família Silva");
   });
 });

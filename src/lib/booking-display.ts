@@ -58,3 +58,10 @@ export function formatShortSchedule(isoDate: string, time: string): string {
   const [, month, day] = isoDate.split("-");
   return `${day}/${month} às ${time}`;
 }
+
+/** Nome exibido na lista do dia. O apelido opcional vem de Booking.notes. */
+export function formatCounterBookingLabel(notes: string | null | undefined): string {
+  const nickname = notes?.trim() ?? "";
+  if (!nickname) return "Balcão";
+  return `Balcão · ${nickname}`;
+}
