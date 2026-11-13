@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Protótipo v2 — Confirmação em tela cheia (Reservei)</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+  <style>
+    :root {
+      --green-1: hsl(152 66% 42%);
+      --green-2: hsl(142 64% 34%);
+      --green-3: hsl(160 58% 24%);
+      --green-ink: hsl(152 70% 18%);
+      --card: #ffffff;
+      --foreground: hsl(0 0% 10%);
+      --muted-foreground: hsl(0 0% 40%);
+      --border: hsl(0 0% 90%);
+      --primary: hsl(270 100% 50%);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --circle-len: 213.63;
+      --check-len: 49.2;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Geist Sans", Geist, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+      background: var(--green-2);
+    }
+
+    .screen {
+      min-height: 100dvh;
+      height: 100dvh;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      padding-top: var(--safe-top);
+      padding-bottom: var(--safe-bottom);
+      background:
+        radial-gradient(ellipse at 50% -10%, rgba(255,255,255,0.18), transparent 55%),
+        linear-gradient(165deg, var(--green-1) 0%, var(--green-2) 48%, var(--green-3) 100%);
+    }
+
+    .inner {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1.15rem 1.25rem 0;
+      max-width: 28rem;
+      margin: 0 auto;
+      width: 100%;
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo-card {
+      border-radius: 1rem;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 10px 28px -8px rgba(0,0,0,0.28);
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    .logo-card img {
+      width: 100%;
+      height: 4.5rem;
+      object-fit: cover;
+      display: block;
+    }
+    html.is-playing .logo-card {
+      animation: fade-down 0.45s ease-out 0.05s forwards;
+    }
+
+    .center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 0.7rem;
+      padding: 0.6rem 0 0.4rem;
+    }
+
+    .icon-btn {
+      position: relative;
+      width: 104px;
+      height: 104px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      padding: 0;
+      margin-bottom: 0.15rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .icon-btn:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: 6px;
+      border-radius: 999px;
+    }
+
+    .ripple {
+      position: absolute;
+      inset: 6px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,0.7);
+      opacity: 0;
+      pointer-events: none;
+    }
+    html.is-playing .ripple-1 { animation: ripple 1.15s ease-out 0.72s both; }
+    html.is-playing .ripple-2 { animation: ripple 1.15s ease-out 0.98s both; }
+
+    .icon-inner {
+      position: relative;
+      width: 88px;
+      height: 88px;
+      margin: 8px auto;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.14);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+      display: grid;
+      place-items: center;
+      transform: scale(0.86);
+      opacity: 0;
+    }
+    html.is-playing .icon-inner {
+      animation:
+        icon-in 0.35s ease-out 0.08s forwards,
+        icon-pop 0.5s cubic-bezier(0.34, 1.45, 0.64, 1) 0.72s forwards;
+    }
+
+    .icon-inner svg { width: 88px; height: 88px; display: block; overflow: visible; }
+    .circle {
+      fill: none;
+      stroke: #fff;
+      stroke-width: 3.25;
+      stroke-linecap: round;
+      stroke-dasharray: var(--circle-len);
+      stroke-dashoffset: var(--circle-len);
+    }
+    .check {
+      fill: none;
+      stroke: #fff;
+      stroke-width: 4.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: var(--check-len);
+      stroke-dashoffset: var(--check-len);
+    }
+    html.is-playing .circle {
+      animation: draw 0.55s ease-out 0.12s forwards;
+    }
+    html.is-playing .check {
+      animation: draw 0.38s ease-out 0.52s forwards;
+    }
+
+    h1 {
+      font-size: 1.625rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      color: #fff;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.12);
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    .sub {
+      font-size: 0.9375rem;
+      line-height: 1.4;
+      color: rgba(255,255,255,0.9);
+      max-width: 20.5rem;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    html.is-playing h1 {
+      animation: fade-up 0.45s ease-out 0.82s forwards;
+    }
+    html.is-playing .sub {
+      animation: fade-up 0.45s ease-out 0.94s forwards;
+    }
+
+    .example-banner {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: hsl(38 92% 28%);
+      background: hsl(38 100% 93%);
+      border: 1px solid hsl(38 92% 72%);
+      border-radius: 999px;
+      padding: 4px 10px;
+      display: inline-block;
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    html.is-playing .example-banner {
+      animation: fade-up 0.4s ease-out 1.05s forwards;
+    }
+
+    .summary {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      color: var(--foreground);
+      border-radius: 1rem;
+      box-shadow: 0 14px 32px -10px rgba(0,0,0,0.28);
+      padding: 0.25rem 1rem;
+      opacity: 0;
+      transform: translateY(18px);
+    }
+    html.is-playing .summary {
+      animation: fade-up 0.5s ease-out 1.18s forwards;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 1rem;
+      padding: 0.8rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row .k {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .row .v { font-size: 0.9375rem; font-weight: 600; text-align: right; }
+    .row.total .v { color: var(--green-ink); font-size: 1.125rem; font-weight: 800; }
+
+    .hint {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.72);
+      margin-top: 0.15rem;
+      opacity: 0;
+    }
+    html.is-playing .hint {
+      animation: fade-up 0.4s ease-out 1.7s forwards;
+    }
+    html.is-final .hint,
+    body.shot .hint { display: none; }
+
+    .actions {
+      padding: 0.85rem 0 calc(1.15rem + var(--safe-bottom));
+      width: 100%;
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    html.is-playing .actions {
+      animation: fade-up 0.5s ease-out 1.38s forwards;
+    }
+    .actions button.cta {
+      width: 100%;
+      height: 3.5rem;
+      border: 0;
+      border-radius: 0.75rem;
+      background: #fff;
+      color: var(--green-ink);
+      font-size: 1.0625rem;
+      font-weight: 700;
+      font-family: inherit;
+      box-shadow: 0 10px 22px -8px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+    .actions button.cta:active { transform: scale(0.99); }
+
+    /* Final / screenshot state: everything already settled */
+    html.is-final .logo-card,
+    html.is-final .icon-inner,
+    html.is-final h1,
+    html.is-final .sub,
+    html.is-final .example-banner,
+    html.is-final .summary,
+    html.is-final .actions {
+      opacity: 1;
+      transform: none;
+      animation: none;
+    }
+    html.is-final .circle,
+    html.is-final .check {
+      stroke-dashoffset: 0;
+      animation: none;
+    }
+    html.is-final .ripple { animation: none; opacity: 0; }
+
+    @keyframes draw {
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes icon-in {
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes icon-pop {
+      0%   { transform: scale(1); }
+      45%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+    @keyframes ripple {
+      0%   { transform: scale(0.92); opacity: 0.65; }
+      100% { transform: scale(1.75); opacity: 0; }
+    }
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fade-down {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html.is-playing .logo-card,
+      html.is-playing .icon-inner,
+      html.is-playing h1,
+      html.is-playing .sub,
+      html.is-playing .example-banner,
+      html.is-playing .summary,
+      html.is-playing .actions,
+      html.is-playing .circle,
+      html.is-playing .check,
+      html.is-playing .ripple,
+      html.is-playing .hint {
+        animation: none !important;
+      }
+      html.is-playing .logo-card,
+      html.is-playing .icon-inner,
+      html.is-playing h1,
+      html.is-playing .sub,
+      html.is-playing .example-banner,
+      html.is-playing .summary,
+      html.is-playing .actions,
+      html.is-playing .hint {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      html.is-playing .circle,
+      html.is-playing .check { stroke-dashoffset: 0 !important; }
+      html.is-playing .ripple { opacity: 0 !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="screen">
+    <div class="inner">
+      <div class="logo-card">
+        <img src="../../../public/images/logo2.png" alt="Recanto Da Uva Fina" />
+      </div>
+
+      <div class="center">
+        <button class="icon-btn" id="replay-btn" type="button" aria-label="Reproduzir animação" title="Toque para repetir a animação">
+          <span class="ripple ripple-1" aria-hidden="true"></span>
+          <span class="ripple ripple-2" aria-hidden="true"></span>
+          <span class="icon-inner">
+            <svg viewBox="0 0 80 80" aria-hidden="true">
+              <circle class="circle" cx="40" cy="40" r="34" />
+              <path class="check" d="M24 41l12 12L56 28" />
+            </svg>
+          </span>
+        </button>
+
+        <h1>Agendamento confirmado!</h1>
+        <p class="sub">Recebemos o seu pedido de agendamento no Recanto Da Uva Fina.</p>
+        <span class="example-banner">Dados de exemplo</span>
+
+        <div class="summary">
+          <div class="row">
+            <span class="k">Responsável</span>
+            <span class="v">Maria Silva</span>
+          </div>
+          <div class="row">
+            <span class="k">WhatsApp</span>
+            <span class="v">(11) 98765-4321</span>
+          </div>
+          <div class="row">
+            <span class="k">Data</span>
+            <span class="v">Sábado, 15/11/2026</span>
+          </div>
+          <div class="row">
+            <span class="k">Horário</span>
+            <span class="v">14:00</span>
+          </div>
+          <div class="row">
+            <span class="k">Visitantes</span>
+            <span class="v">2 adultos, 1 criança</span>
+          </div>
+          <div class="row total">
+            <span class="k">Valor total</span>
+            <span class="v">R$ 25,00</span>
+          </div>
+        </div>
+        <p class="hint">Toque no ícone para repetir a animação</p>
+      </div>
+
+      <div class="actions">
+        <button class="cta" type="button">Fazer novo agendamento</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const root = document.documentElement;
+      const params = new URLSearchParams(location.search);
+      const isShot = params.get("shot") === "1" || params.get("final") === "1";
+      const shouldLoop = params.has("replay") && !isShot;
+
+      if (isShot) document.body.classList.add("shot");
+
+      const check = document.querySelector(".check");
+      if (check && check.getTotalLength) {
+        root.style.setProperty("--check-len", check.getTotalLength().toFixed(2));
+      }
+
+      function play() {
+        root.classList.remove("is-playing", "is-final");
+        void root.offsetWidth;
+        root.classList.add("is-playing");
+      }
+
+      if (isShot) {
+        root.classList.add("is-final");
+      } else {
+        play();
+      }
+
+      document.getElementById("replay-btn").addEventListener("click", play);
+
+      let loopId;
+      if (shouldLoop) {
+        loopId = setInterval(play, 3500);
+      }
+      window.__replay = play;
+    })();
+  </script>
+</body>
+</html>

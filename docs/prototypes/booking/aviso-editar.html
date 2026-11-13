@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Protótipo — Alerta e edição de agendamento (Reservei)</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css" />
+  <style>
+    :root {
+      --background: hsl(0 0% 97%);
+      --foreground: hsl(0 0% 10%);
+      --primary: hsl(270 100% 50%);
+      --muted-foreground: hsl(0 0% 45%);
+      --border: hsl(0 0% 90%);
+      --warning: hsl(38 92% 50%);
+      --warning-soft: hsl(38 100% 96%);
+      --warning-ink: hsl(32 90% 24%);
+      --green-1: hsl(152 66% 42%);
+      --green-2: hsl(142 64% 34%);
+      --green-3: hsl(160 58% 24%);
+      --green-ink: hsl(152 70% 18%);
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Geist Sans", Geist, ui-sans-serif, system-ui, -apple-system, sans-serif;
+      background: var(--background);
+      color: var(--foreground);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .switcher {
+      position: fixed; left: 8px; right: 8px; bottom: 10px; z-index: 80;
+      display: flex; gap: 6px; padding: 5px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .switcher a {
+      flex: 1; text-align: center; text-decoration: none;
+      font-size: 10px; font-weight: 700; padding: 9px 4px;
+      border-radius: 999px; color: var(--foreground); line-height: 1.2;
+    }
+    .switcher a.active { background: var(--primary); color: #fff; }
+    body.shot .switcher, body.shot .caption { display: none; }
+    .caption {
+      position: absolute; top: calc(8px + var(--safe-top)); left: 12px; z-index: 70;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      background: rgba(0,0,0,0.65); color: #fff; padding: 4px 8px; border-radius: 6px;
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+    #sucesso.view.active { display: flex; }
+
+    /* Public form chrome */
+    .page { min-height: 100dvh; position: relative; }
+    .bg {
+      position: fixed; inset: 0; z-index: -1;
+      background: url("../../../public/images/texturas_uvas.png") center / cover no-repeat;
+    }
+    .main {
+      max-width: 42rem; margin: 0 auto;
+      padding: 2rem 1rem; display: flex; flex-direction: column; gap: 1.5rem;
+    }
+    .logo-wrap {
+      position: relative; border-radius: 1.5rem; overflow: hidden;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); height: 12rem;
+    }
+    .logo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .card {
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(8px);
+      border-radius: 1rem;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+    }
+    .card-title-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    .bar { height: 2.5rem; width: 4px; background: var(--primary); border-radius: 999px; }
+    h3 { font-size: 1.25rem; font-weight: 700; }
+    .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .icon-btn { width: 2rem; height: 2rem; border: 0; background: transparent; font-size: 1.1rem; }
+    .weekdays, .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; text-align: center; }
+    .weekdays span { font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground); padding: 0.25rem 0; }
+    .days span { display: grid; place-items: center; height: 2.25rem; font-size: 0.875rem; border-radius: 0.5rem; }
+    .days .past { color: var(--muted-foreground); opacity: 0.45; }
+    .days .today { border: 1px solid var(--primary); }
+    .days .sel { background: var(--primary); color: #fff; font-weight: 700; }
+    .slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+    .slot {
+      padding: 0.75rem; border-radius: 0.75rem; border: 2px solid var(--border);
+      background: var(--background); font-weight: 600; font-size: 0.875rem; text-align: center;
+    }
+    .slot.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .label { display: block; font-size: 0.875rem; font-weight: 500; color: var(--muted-foreground); margin-bottom: 0.5rem; }
+    .input {
+      width: 100%; height: 3rem; border: 1px solid var(--border);
+      background: var(--background); border-radius: 0.5rem;
+      padding: 0 0.75rem; font: inherit; display: flex; align-items: center;
+    }
+    .confirm-btn {
+      width: 100%; height: 3.5rem; border: 0; border-radius: 0.5rem;
+      background: var(--primary); color: #fff; font-size: 1.125rem; font-weight: 700;
+    }
+
+    /* Amber bottom sheet */
+    .overlay {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(15, 15, 15, 0.48);
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .sheet {
+      width: 100%; max-width: 28rem; background: #fff;
+      border-radius: 1.5rem 1.5rem 0 0;
+      padding: 0.4rem 1.2rem calc(1.1rem + var(--safe-bottom));
+      box-shadow: 0 -12px 40px rgba(0,0,0,0.2);
+    }
+    .handle { width: 40px; height: 4px; border-radius: 999px; background: hsl(0 0% 82%); margin: 0.35rem auto 0.85rem; }
+    .icon-wrap {
+      width: 52px; height: 52px; border-radius: 999px;
+      display: grid; place-items: center;
+      margin: 0 auto 0.7rem;
+      background: hsl(38 100% 90%); color: var(--warning-ink);
+    }
+    .sheet h2 {
+      text-align: center; font-size: 1.2rem; font-weight: 800;
+      letter-spacing: -0.02em; line-height: 1.25; margin-bottom: 0.4rem;
+    }
+    .lead {
+      text-align: center; font-size: 0.875rem; line-height: 1.4;
+      color: hsl(0 0% 32%); margin-bottom: 0.7rem;
+    }
+    .example-banner {
+      display: block; width: fit-content; margin: 0 auto 0.7rem;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+      color: hsl(38 92% 28%); background: hsl(38 100% 93%);
+      border: 1px solid hsl(38 92% 72%); border-radius: 999px; padding: 4px 10px;
+    }
+    .compare { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.95rem; }
+    .box {
+      border-radius: 0.9rem; padding: 0.7rem 0.9rem;
+      border: 1px solid var(--border);
+    }
+    .box.old { background: var(--warning-soft); border-color: hsl(38 80% 82%); }
+    .box.new { background: hsl(270 100% 98%); border-color: hsl(270 80% 90%); }
+    .box .k {
+      font-size: 0.68rem; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--muted-foreground); margin-bottom: 0.15rem;
+    }
+    .box .v { font-size: 0.98rem; font-weight: 700; }
+    .box .meta { font-size: 0.78rem; color: hsl(0 0% 32%); margin-top: 0.2rem; }
+    .chg { display: inline-flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+    .chg s { color: var(--muted-foreground); font-weight: 600; }
+    .chg .to { color: var(--green-ink); }
+    .actions { display: flex; flex-direction: column; gap: 0.45rem; }
+    .btn {
+      width: 100%; border-radius: 0.75rem; font-family: inherit;
+      font-size: 0.98rem; font-weight: 700; cursor: pointer; border: 0;
+      min-height: 2.95rem; padding: 0.65rem 0.85rem; line-height: 1.25;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary {
+      background: #fff; color: var(--warning-ink);
+      border: 2px solid hsl(38 70% 70%);
+    }
+    .btn-ghost { background: transparent; color: var(--muted-foreground); font-weight: 600; min-height: 2.4rem; }
+    .privacy {
+      text-align: center; font-size: 0.68rem; color: var(--muted-foreground);
+      margin-top: 0.6rem; line-height: 1.35;
+    }
+
+    /* Green success (v2 language, final state) */
+    .screen {
+      min-height: 100dvh; height: 100dvh; width: 100%;
+      display: flex; flex-direction: column;
+      position: relative; overflow: hidden;
+      padding-top: var(--safe-top); padding-bottom: var(--safe-bottom);
+      background:
+        radial-gradient(ellipse at 50% -10%, rgba(255,255,255,0.18), transparent 55%),
+        linear-gradient(165deg, var(--green-1) 0%, var(--green-2) 48%, var(--green-3) 100%);
+      color: #fff;
+    }
+    .inner {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 1.15rem 1.25rem 0;
+      max-width: 28rem; margin: 0 auto; width: 100%;
+    }
+    .logo-card {
+      border-radius: 1rem; overflow: hidden; background: #fff;
+      box-shadow: 0 10px 28px -8px rgba(0,0,0,0.28);
+    }
+    .logo-card img { width: 100%; height: 4.5rem; object-fit: cover; display: block; }
+    .center {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      gap: 0.65rem; padding: 0.6rem 0 0.4rem;
+    }
+    .icon-inner {
+      width: 88px; height: 88px; border-radius: 999px;
+      background: rgba(255,255,255,0.14);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.16);
+      display: grid; place-items: center; margin-bottom: 0.2rem;
+    }
+    .icon-inner svg { width: 88px; height: 88px; display: block; }
+    .screen h1 {
+      font-size: 1.625rem; font-weight: 800; letter-spacing: -0.03em;
+      line-height: 1.2; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,0.12);
+    }
+    .sub { font-size: 0.9375rem; line-height: 1.4; color: rgba(255,255,255,0.9); max-width: 20.5rem; }
+    .summary {
+      width: 100%; text-align: left; background: #fff; color: var(--foreground);
+      border-radius: 1rem; box-shadow: 0 14px 32px -10px rgba(0,0,0,0.28);
+      padding: 0.25rem 1rem;
+    }
+    .row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 1rem; padding: 0.78rem 0; border-bottom: 1px solid var(--border);
+    }
+    .row:last-child { border-bottom: 0; }
+    .row .k {
+      font-size: 0.75rem; font-weight: 600; color: var(--muted-foreground);
+      text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .row .v { font-size: 0.9375rem; font-weight: 600; text-align: right; }
+    .row .v.stack {
+      display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem;
+    }
+    .row .v s { color: var(--muted-foreground); font-weight: 500; }
+    .row.changed .v { color: var(--green-ink); }
+    .row.total .v { color: var(--green-ink); font-size: 1.125rem; font-weight: 800; }
+    .fs-actions { padding: 0.85rem 0 calc(1.15rem + var(--safe-bottom)); width: 100%; }
+    .fs-actions button {
+      width: 100%; height: 3.5rem; border: 0; border-radius: 0.75rem;
+      background: #fff; color: var(--green-ink);
+      font-size: 1.0625rem; font-weight: 700; font-family: inherit;
+      box-shadow: 0 10px 22px -8px rgba(0,0,0,0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="switcher">
+    <a href="?view=mesmo" id="link-mesmo">Mesmo horário</a>
+    <a href="?view=outra" id="link-outra">Outra data</a>
+    <a href="?view=sucesso" id="link-sucesso">Atualizado</a>
+  </div>
+
+  <!-- 1. Same day + time: treat as edit -->
+  <div id="mesmo" class="view page">
+    <span class="caption">Mesmo horário</span>
+    <div class="bg" aria-hidden="true"></div>
+    <main class="main" id="form-mesmo"></main>
+    <div class="overlay" role="dialog" aria-modal="true" aria-labelledby="mesmo-title">
+      <div class="sheet">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="icon-wrap" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M12 9v4.5M12 16.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M10.3 4.8L2.6 18a2 2 0 0 0 1.73 3h15.34A2 2 0 0 0 21.4 18L13.7 4.8a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2 id="mesmo-title">Você já tem um agendamento neste horário</h2>
+        <p class="lead">Parece que você está tentando recadastrar por cima. Deseja atualizar o agendamento existente?</p>
+        <span class="example-banner">Dados de exemplo</span>
+        <div class="compare">
+          <div class="box old">
+            <div class="k">Agendamento existente</div>
+            <div class="v">Sábado, 15/11/2026 às 14:00</div>
+            <div class="meta">Mostramos só data e horário.</div>
+          </div>
+          <div class="box new">
+            <div class="k">O que você está enviando agora</div>
+            <div class="v">
+              <span class="chg"><s>2 adultos</s> <span class="to">3 adultos, 1 criança</span></span>
+            </div>
+            <div class="meta">Valor: <s>R$&nbsp;25,00</s> → R$&nbsp;35,00</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button">Atualizar meu agendamento</button>
+          <button class="btn btn-secondary" type="button">Fazer outro agendamento</button>
+          <button class="btn btn-ghost" type="button">Cancelar</button>
+        </div>
+        <p class="privacy">Se este número não é seu, toque em Cancelar e confira o WhatsApp informado.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Other date/time -->
+  <div id="outra" class="view page">
+    <span class="caption">Outra data</span>
+    <div class="bg" aria-hidden="true"></div>
+    <main class="main" id="form-outra"></main>
+    <div class="overlay" role="dialog" aria-modal="true" aria-labelledby="outra-title">
+      <div class="sheet">
+        <div class="handle" aria-hidden="true"></div>
+        <div class="icon-wrap" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+            <path d="M12 9v4.5M12 16.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M10.3 4.8L2.6 18a2 2 0 0 0 1.73 3h15.34A2 2 0 0 0 21.4 18L13.7 4.8a2 2 0 0 0-3.4 0z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h2 id="outra-title">Você já tem um agendamento</h2>
+        <p class="lead">Quer mover o agendamento existente para o novo horário, ou manter os dois?</p>
+        <span class="example-banner">Dados de exemplo</span>
+        <div class="compare">
+          <div class="box old">
+            <div class="k">Agendamento existente</div>
+            <div class="v">Sábado, 15/11/2026 às 14:00</div>
+            <div class="meta">Mostramos só data e horário.</div>
+          </div>
+          <div class="box new">
+            <div class="k">Novo horário escolhido</div>
+            <div class="v">Domingo, 22/11/2026 às 10:00</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button">Mover meu agendamento para 22/11 às 10:00</button>
+          <button class="btn btn-secondary" type="button">Fazer novo agendamento<br><span style="font-weight:600;font-size:0.78rem;opacity:.85">Manter os dois</span></button>
+          <button class="btn btn-ghost" type="button">Cancelar</button>
+        </div>
+        <p class="privacy">Se este número não é seu, toque em Cancelar e confira o WhatsApp informado.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Updated success (v2 green, final state) -->
+  <div id="sucesso" class="view screen">
+    <span class="caption">Atualizado</span>
+    <div class="inner">
+      <div class="logo-card">
+        <img src="../../../public/images/logo2.png" alt="Recanto Da Uva Fina" />
+      </div>
+      <div class="center">
+        <div class="icon-inner" aria-hidden="true">
+          <svg viewBox="0 0 80 80" fill="none">
+            <circle cx="40" cy="40" r="34" stroke="#fff" stroke-width="3.25"/>
+            <path d="M24 41l12 12L56 28" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h1>Agendamento atualizado!</h1>
+        <p class="sub">Alteramos o agendamento existente no Recanto Da Uva Fina.</p>
+        <span class="example-banner">Dados de exemplo</span>
+        <div class="summary">
+          <div class="row">
+            <span class="k">Data e horário</span>
+            <span class="v">Sábado, 15/11/2026 às 14:00</span>
+          </div>
+          <div class="row changed">
+            <span class="k">Visitantes</span>
+            <span class="v stack"><s>2 adultos, 1 criança</s><span>3 adultos, 1 criança</span></span>
+          </div>
+          <div class="row total">
+            <span class="k">Valor total</span>
+            <span class="v stack"><s style="font-size:0.9rem;font-weight:600">R$ 25,00</s><span>R$ 35,00</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="fs-actions">
+        <button type="button">Concluir</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const allowed = { mesmo: 1, outra: 1, sucesso: 1 };
+      const view = allowed[params.get("view")] ? params.get("view") : "mesmo";
+      if (params.get("shot") === "1") document.body.classList.add("shot");
+      document.getElementById(view).classList.add("active");
+      const link = document.getElementById("link-" + view);
+      if (link) link.classList.add("active");
+
+      function buildForm(selDay, selTime, adults) {
+        const days = [];
+        for (let d = 1; d <= 30; d++) {
+          let cls = "";
+          if (d < 12) cls = "past";
+          else if (d === selDay) cls = "sel";
+          else if (d === 12) cls = "today";
+          days.push(`<span class="${cls}">${d}</span>`);
+        }
+        const times = ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00"];
+        const slots = times.map((t) => `<div class="slot${t === selTime ? " on" : ""}">${t}</div>`).join("");
+        return `
+          <div class="logo-wrap"><img src="../../../public/images/logo2.png" alt="Recanto Da Uva Fina" /></div>
+          <div class="card">
+            <div class="card-title-row"><div class="bar"></div><h3>Selecione a Data</h3></div>
+            <div class="cal-head">
+              <button class="icon-btn" aria-label="Mês anterior">‹</button>
+              <strong>Novembro 2026</strong>
+              <button class="icon-btn" aria-label="Próximo mês">›</button>
+            </div>
+            <div class="weekdays"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+            <div class="days">${days.join("")}</div>
+          </div>
+          <div class="card">
+            <div class="card-title-row"><div class="bar"></div><h3>Selecione o Horário</h3></div>
+            <div class="slots">${slots}</div>
+          </div>
+          <div class="card">
+            <div class="card-title-row"><div class="bar"></div><h3>Responsável pelo Passeio</h3></div>
+            <label class="label">Número de WhatsApp</label>
+            <div class="input">(11) 98765-4321</div>
+          </div>
+          <div class="card">
+            <div class="card-title-row"><div class="bar"></div><h3>Visitantes</h3></div>
+            <div style="display:flex;justify-content:space-between;font-weight:500"><span>Adultos</span><span>${adults}</span></div>
+          </div>
+          <button class="confirm-btn" type="button">Confirmar Agendamento</button>
+        `;
+      }
+
+      const formMesmo = document.getElementById("form-mesmo");
+      const formOutra = document.getElementById("form-outra");
+      if (formMesmo) formMesmo.innerHTML = buildForm(15, "14:00", 3);
+      if (formOutra) formOutra.innerHTML = buildForm(22, "10:00", 2);
+    })();
+  </script>
+</body>
+</html>
