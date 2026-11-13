@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
 			if (url.pathname.startsWith("/dashboard")) {
 				const sessionCookie = getSessionCookie(request);
 				if (!sessionCookie) {
-					return NextResponse.redirect(new URL(`https://${publicSubdomain}.${baseDomain}/auth/login`, request.url));
+					return NextResponse.redirect(new URL(`https://${publicSubdomain}.${baseDomain}/auth/signin`, request.url));
 				}
 			}
 		}
@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
 	if (url.pathname.startsWith("/dashboard")) {
 		const sessionCookie = getSessionCookie(request);
 		if (!sessionCookie) {
-			return NextResponse.redirect(new URL("/auth/login", request.url));
+			return NextResponse.redirect(new URL("/auth/signin", request.url));
 		}
 	}
 

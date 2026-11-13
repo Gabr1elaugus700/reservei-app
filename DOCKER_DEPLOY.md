@@ -1,6 +1,6 @@
 # Deploy na VPS
 
-A imagem é construída na própria VPS. Não há push para o Docker Hub.
+Este guia sobe a imagem construída na própria máquina (`docker compose up -d --build`). Na VPS da Hostinger, que só puxa imagem, use [`deploy/hostinger/README.md`](deploy/hostinger/README.md). O workflow `.github/workflows/docker-publish.yml` publica `gabgarb/reservei-app` no Docker Hub.
 
 O Compose sobe dois serviços na rede `app-network`: `postgres` (Postgres 15, sem porta publicada) e `web` (Next.js na porta **3005** do host, 3000 no container). Na subida, o container espera o Postgres, aplica `prisma migrate deploy` e roda o seed. O seed cria o admin a partir do `.env` e faz upsert do Cliente balcão (`id` `cliente-balcao`). Rodar de novo não duplica esses registros.
 
@@ -70,7 +70,7 @@ docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB
 
 ## CI
 
-O workflow antigo (`.github/workflows/deploy.yml`) usava Node 16, que não executa o Next 16, e o “deploy” era só um `echo`. O deploy de produção é este Compose na VPS, então o GitHub Actions não publica a aplicação. No lugar ficou `.github/workflows/ci.yml`: em push e pull request para `main`, Node 20 roda `npm ci`, `prisma generate`, lint, typecheck, testes e build.
+O workflow antigo (`.github/workflows/deploy.yml`) usava Node 16, que não executa o Next 16, e o “deploy” era só um `echo`. No lugar ficou `.github/workflows/ci.yml`: em push e pull request para `main`, Node 20 roda `npm ci`, `prisma generate`, lint, typecheck, testes e build. A publicação da imagem é outro workflow, `.github/workflows/docker-publish.yml`.
 
 ## Nginx (opcional)
 
