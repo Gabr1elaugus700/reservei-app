@@ -211,6 +211,7 @@
 }
 
 .booking-confirm-row .k {
+  flex: 0 1 8rem;
   color: var(--confirm-muted);
   font-size: 0.75rem;
   font-weight: 600;
@@ -339,6 +340,197 @@
   }
 }
 
+.booking-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 15, 15, 0.48);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.booking-sheet {
+  width: 100%;
+  max-width: 28rem;
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem);
+  overflow: auto;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background: #fff;
+  color: hsl(0 0% 10%);
+  padding: 0.4rem 1.2rem calc(1.1rem + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.2);
+  animation: booking-sheet-in 0.28s ease-out;
+}
+
+.booking-sheet-handle {
+  width: 40px;
+  height: 4px;
+  margin: 0.35rem auto 0.85rem;
+  border-radius: 999px;
+  background: hsl(0 0% 82%);
+}
+
+.booking-sheet-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 0.7rem;
+  place-items: center;
+  border-radius: 999px;
+  background: hsl(38 100% 90%);
+  color: hsl(32 90% 24%);
+}
+
+.booking-sheet-title {
+  margin-bottom: 0.4rem;
+  color: hsl(0 0% 10%);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.booking-sheet-lead {
+  margin-bottom: 0.85rem;
+  color: hsl(0 0% 32%);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.booking-sheet-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.95rem;
+}
+
+.booking-sheet-box {
+  border-radius: 0.9rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.booking-sheet-box.is-old {
+  border: 1px solid hsl(38 80% 82%);
+  background: hsl(38 100% 96%);
+}
+
+.booking-sheet-box.is-new {
+  border: 1px solid hsl(270 80% 90%);
+  background: hsl(270 100% 98%);
+}
+
+.booking-sheet-box .k {
+  margin-bottom: 0.15rem;
+  color: hsl(0 0% 45%);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.booking-sheet-box .v {
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.booking-sheet-box .meta {
+  margin-top: 0.2rem;
+  color: hsl(0 0% 32%);
+  font-size: 0.78rem;
+}
+
+.booking-sheet-change {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.booking-sheet-change s {
+  color: hsl(0 0% 45%);
+  font-weight: 600;
+}
+
+.booking-sheet-change span {
+  color: hsl(152 70% 18%);
+}
+
+.booking-sheet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.booking-sheet-button {
+  width: 100%;
+  min-height: 2.95rem;
+  padding: 0.65rem 0.85rem;
+  border: 0;
+  border-radius: 0.75rem;
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.booking-sheet-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.booking-sheet-button:focus-visible {
+  outline: 2px solid hsl(270 100% 50%);
+  outline-offset: 2px;
+}
+
+.booking-sheet-primary {
+  background: var(--primary);
+  color: #fff;
+}
+
+.booking-sheet-secondary {
+  border: 2px solid hsl(38 70% 70%);
+  background: #fff;
+  color: hsl(32 90% 24%);
+}
+
+.booking-sheet-secondary small {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.booking-sheet-ghost {
+  min-height: 2.4rem;
+  background: transparent;
+  color: hsl(0 0% 45%);
+  font-weight: 600;
+}
+
+.booking-sheet-privacy {
+  margin-top: 0.6rem;
+  color: hsl(0 0% 45%);
+  font-size: 0.68rem;
+  line-height: 1.35;
+  text-align: center;
+}
+
+@keyframes booking-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .booking-confirm.is-playing .booking-confirm-logo,
   .booking-confirm.is-playing .booking-confirm-icon-inner,
@@ -369,5 +561,9 @@
 
   .booking-confirm.is-playing .booking-confirm-ripple {
     opacity: 0;
+  }
+
+  .booking-sheet {
+    animation: none;
   }
 }
