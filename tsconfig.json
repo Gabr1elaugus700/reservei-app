@@ -40,7 +40,6 @@
   ],
   "exclude": [
     "node_modules",
-    "src/components/editor",
-    "prisma/seed.ts"
+    "src/components/editor"
   ]
 }

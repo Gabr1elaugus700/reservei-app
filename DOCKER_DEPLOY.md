@@ -1,273 +1,95 @@
-# 🐳 Deploy com Docker - app-reservei.com.br
+# Deploy na VPS
 
-## 📦 Configuração Completa com Docker
+A imagem é construída na própria VPS. Não há push para o Docker Hub.
 
-Este guia mostra como fazer deploy da aplicação usando Docker e Docker Compose.
+O Compose sobe dois serviços na rede `app-network`: `postgres` (Postgres 15, sem porta publicada) e `web` (Next.js na porta **3005** do host, 3000 no container). Na subida, o container espera o Postgres, aplica `prisma migrate deploy` e roda o seed. O seed cria o admin a partir do `.env` e faz upsert do Cliente balcão (`id` `cliente-balcao`). Rodar de novo não duplica esses registros.
 
-## 🚀 Início Rápido
-
-### 1. Configurar Variáveis de Ambiente
-
-Copie o arquivo de exemplo:
-```bash
-cp .env.docker .env
-```
-
-Edite o `.env` e ajuste:
-- `POSTGRES_PASSWORD` - senha segura para o banco
-- `BETTER_AUTH_SECRET` - gere com: `openssl rand -base64 32`
-- `RABBITMQ_PASS` - senha para o RabbitMQ
-- Confirme `NEXT_PUBLIC_BASE_DOMAIN=app-reservei.com.br`
-
-### 2. Build e Start
+## 1. Clonar e configurar
 
 ```bash
-# Build das imagens
-docker-compose build
-
-# Iniciar todos os serviços
-docker-compose up -d
-
-# Ver logs
-docker-compose logs -f app
+git clone https://github.com/Gabr1elaugus700/reservei-app.git
+cd reservei-app
+cp .env.example .env
 ```
 
-### 3. Verificar Serviços
+Edite o `.env`. Os placeholders do exemplo não sobem o Compose: troque senha do banco, `DATABASE_URL` (com os mesmos usuário, senha e banco, e com o host `postgres`), `BETTER_AUTH_SECRET`, as URLs e o e-mail/senha do admin. Gere o segredo com:
 
 ```bash
-# Status dos containers
-docker-compose ps
-
-# Acessar a aplicação
-curl http://localhost:3000
+openssl rand -base64 32
 ```
 
-## 🏗️ Estrutura dos Containers
+`SEED_ADMIN_PASSWORD` precisa ter de 8 a 128 caracteres. A senha do `.env` é reaplicada se o admin já existir com outra senha. Uma senha alterada só pela tela volta ao valor do `.env` no próximo start.
 
-A stack completa inclui:
-
-- **app** (porta 3000) - Aplicação Next.js
-- **db** (porta 5438) - PostgreSQL 16
-- **redis** (porta 6379) - Cache
-- **rabbitmq** (porta 5672/15672) - Filas
-
-## 📋 Comandos Úteis
-
-### Gerenciamento de Containers
+## 2. Subir
 
 ```bash
-# Parar todos os serviços
-docker-compose down
-
-# Parar e remover volumes (CUIDADO: apaga dados)
-docker-compose down -v
-
-# Rebuild sem cache
-docker-compose build --no-cache
-
-# Restart de um serviço específico
-docker-compose restart app
+docker compose up -d --build
 ```
 
-### Migrations e Database
+## 3. Logs
 
 ```bash
-# Executar migrations manualmente
-docker-compose exec app npx prisma migrate deploy
-
-# Acessar o PostgreSQL
-docker-compose exec db psql -U reservei -d reservei
-
-# Backup do banco
-docker-compose exec db pg_dump -U reservei reservei > backup.sql
-
-# Restore do banco
-cat backup.sql | docker-compose exec -T db psql -U reservei reservei
+docker compose logs -f web
 ```
 
-### Logs e Debug
+Espere as linhas de migração aplicada, “Cliente balcão pronto.” e “Admin criado” (ou “Admin já existia”). A página pública fica em `http://SEU_IP:3005`. O login fica em `http://SEU_IP:3005/auth/signin`.
+
+## 4. Atualizar
 
 ```bash
-# Ver logs de todos os serviços
-docker-compose logs -f
-
-# Ver logs de um serviço específico
-docker-compose logs -f app
-
-# Entrar no container da aplicação
-docker-compose exec app sh
-
-# Ver variáveis de ambiente no container
-docker-compose exec app env
+git pull
+docker compose up -d --build
 ```
 
-## 🌐 Configuração do Nginx como Proxy Reverso
+O start aplica migrações novas e roda o seed de novo.
 
-Com Docker, o Nginx fica na frente dos containers:
+## 5. Normalizar telefones, uma vez
+
+A migration `20261113140000_normalize_customer_phone` já grava o telefone nacional no deploy. O script serve para revisar o efeito, repetir a gravação e listar números compartilhados. Ele não funde clientes. O Cliente balcão não entra na normalização.
+
+Dentro do container `web`:
+
+```bash
+docker compose exec web ./node_modules/.bin/tsx scripts/normalize-customer-phones.ts
+docker compose exec web ./node_modules/.bin/tsx scripts/normalize-customer-phones.ts --apply
+```
+
+O primeiro comando só mostra o plano. O segundo grava. Rode o `--apply` uma vez depois do primeiro deploy.
+
+## 6. Backup do banco
+
+```bash
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > "backup-$(date +%F).sql"
+```
+
+Para restaurar num banco vazio:
+
+```bash
+docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < backup.sql
+```
+
+## CI
+
+O workflow antigo (`.github/workflows/deploy.yml`) usava Node 16, que não executa o Next 16, e o “deploy” era só um `echo`. O deploy de produção é este Compose na VPS, então o GitHub Actions não publica a aplicação. No lugar ficou `.github/workflows/ci.yml`: em push e pull request para `main`, Node 20 roda `npm ci`, `prisma generate`, lint, typecheck, testes e build.
+
+## Nginx (opcional)
+
+Se for colocar HTTPS na frente, o proxy aponta para a porta 3005:
 
 ```nginx
-# /etc/nginx/sites-available/app-reservei
-
-# Área Pública - reservas.app-reservei.com.br
 server {
     listen 80;
-    server_name reservas.app-reservei.com.br;
+    server_name reservas.seudominio.com.br app.seudominio.com.br;
 
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://127.0.0.1:3005;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-
-# Área Administrativa - app.app-reservei.com.br
-server {
-    listen 80;
-    server_name app.app-reservei.com.br;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
     }
 }
 ```
 
-Ativar e instalar SSL:
-```bash
-sudo ln -s /etc/nginx/sites-available/app-reservei /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-sudo certbot --nginx -d app.app-reservei.com.br -d reservas.app-reservei.com.br
-```
-
-## 🔒 Segurança em Produção
-
-### 1. Gerar Secrets Seguros
-
-```bash
-# Better Auth Secret
-openssl rand -base64 32
-
-# Senhas seguras
-openssl rand -base64 24
-```
-
-### 2. Não Exponha Portas Desnecessárias
-
-No `docker-compose.yml`, remova as portas públicas dos serviços internos:
-
-```yaml
-# Comentar estas linhas em produção:
-# ports:
-#   - "5438:5432"  # PostgreSQL
-#   - "6379:6379"  # Redis
-#   - "15672:15672" # RabbitMQ Management
-```
-
-Apenas a porta 3000 (app) deve estar acessível.
-
-### 3. Use Secrets do Docker
-
-Para produção, considere usar Docker Secrets:
-
-```bash
-echo "meu-secret" | docker secret create better_auth_secret -
-```
-
-## 📊 Monitoramento
-
-### Health Checks
-
-Os containers têm health checks configurados:
-
-```bash
-# Ver status de saúde
-docker-compose ps
-
-# Testar healthcheck manualmente
-docker-compose exec app wget -q -O- http://localhost:3000/api/health || echo "UNHEALTHY"
-```
-
-### RabbitMQ Management UI
-
-Acesse: http://localhost:15672
-- Usuário: `reservei` (ou valor de RABBITMQ_USER)
-- Senha: definida em RABBITMQ_PASS
-
-## 🔄 Atualizações (CI/CD)
-
-Script básico para atualizar a aplicação:
-
-```bash
-#!/bin/bash
-# deploy.sh
-
-echo "🚀 Atualizando app-reservei..."
-
-# Pull do código
-git pull origin main
-
-# Rebuild e restart
-docker-compose build app
-docker-compose up -d app
-
-# Executar migrations
-docker-compose exec app npx prisma migrate deploy
-
-echo "✅ Deploy concluído!"
-```
-
-## ✅ Checklist de Deploy
-
-- [ ] Configurar `.env` com senhas seguras
-- [ ] Configurar DNS (app e reservas)
-- [ ] Build das imagens: `docker-compose build`
-- [ ] Iniciar serviços: `docker-compose up -d`
-- [ ] Verificar logs: `docker-compose logs -f`
-- [ ] Configurar Nginx como proxy reverso
-- [ ] Instalar certificado SSL com Certbot
-- [ ] Testar acesso aos subdomínios
-- [ ] Configurar backup automático do banco
-- [ ] Configurar monitoramento (opcional)
-
-## 🐛 Troubleshooting
-
-**Container não inicia:**
-```bash
-docker-compose logs app
-```
-
-**Erro de conexão com banco:**
-- Verifique se o serviço `db` está healthy
-- Confirme a DATABASE_URL no `.env`
-
-**Build falha:**
-```bash
-docker-compose build --no-cache
-```
-
-**Limpar tudo e recomeçar:**
-```bash
-docker-compose down -v
-docker-compose build --no-cache
-docker-compose up -d
-```
-
-## 📱 URLs Finais
-
-- **Página Pública:** https://reservas.app-reservei.com.br
-- **Painel Admin:** https://app.app-reservei.com.br
-- **RabbitMQ Management:** http://localhost:15672 (apenas local)
+`NEXT_PUBLIC_APP_URL` e `BETTER_AUTH_URL` precisam ser a origem pública (por exemplo `https://reservas.seudominio.com.br`). Mudança em variável `NEXT_PUBLIC_*` só entra na página depois de `docker compose up -d --build`.

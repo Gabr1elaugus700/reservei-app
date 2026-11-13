@@ -5,6 +5,28 @@ import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins/organization";
 
 const prisma = new PrismaClient();
+
+function trustedOriginList(): string[] {
+    const candidates = [
+        "http://localhost:3000",
+        "http://localhost:3005",
+        "https://reservas.app-reservei.com.br",
+        "https://app.app-reservei.com.br",
+        process.env.BETTER_AUTH_URL,
+        process.env.NEXT_PUBLIC_APP_URL,
+    ];
+    const origins: string[] = [];
+
+    for (const candidate of candidates) {
+        if (typeof candidate !== "string") continue;
+        const origin = candidate.trim().replace(/\/$/, "");
+        if (!origin || origins.includes(origin)) continue;
+        origins.push(origin);
+    }
+
+    return origins;
+}
+
 export const auth = betterAuth({
     secret: process.env.BETTER_AUTH_SECRET || "default-secret-key-change-in-production",
     baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
@@ -21,9 +43,5 @@ export const auth = betterAuth({
         organization(),
         nextCookies(),
     ],
-    trustedOrigins: [
-        "http://localhost:3000",
-        "https://reservas.app-reservei.com.br",
-        "https://app.app-reservei.com.br",
-    ],
+    trustedOrigins: trustedOriginList(),
 });
