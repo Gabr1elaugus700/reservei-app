@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { findCustomersByPhone } from "@/lib/customers";
+import { normalizePhone } from "@/lib/phone";
 
 // GET /api/customer/[phone] - Find customer by phone/WhatsApp
 export async function GET(
@@ -15,18 +16,15 @@ export async function GET(
     );
   }
 
+  if (!normalizePhone(phone)) {
+    return NextResponse.json(
+      { error: "Número de WhatsApp inválido" },
+      { status: 400 }
+    );
+  }
+
   try {
-    // Buscar cliente no banco de dados pelo telefone
-    const customer = await prisma.customer.findFirst({
-      where: { phone },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        email: true,
-        createdAt: true,
-      },
-    });
+    const [customer] = await findCustomersByPhone(phone);
 
     if (customer) {
       return NextResponse.json({

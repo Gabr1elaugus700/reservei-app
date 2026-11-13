@@ -8,6 +8,7 @@ import { BookingCalendar } from "@/components/BookingCalendar";
 import { Input } from "@/components/ui/input";
 import TimeSlot from "@/components/TimeSlot";
 import { useTimeSlots } from "@/hooks/use-timeslots";
+import { normalizePhone } from "@/lib/phone";
 
 interface Visitors {
   childrens: number;
@@ -67,11 +68,12 @@ const Index = () => {
   };
 
   const handleWhatsappBlur = async () => {
-    // Validar Whatsapp (mínimo 10 dígitos)
-    const numbersOnly = whatsappNumber.replace(/\D/g, "");
+    const phone = normalizePhone(whatsappNumber);
 
-    if (numbersOnly.length < 10) {
-      toast.error("Número de WhatsApp inválido");
+    if (!phone) {
+      if (whatsappNumber.trim()) {
+        toast.error("Número de WhatsApp inválido");
+      }
       return;
     }
 
@@ -79,7 +81,7 @@ const Index = () => {
 
     try {
       const response = await fetch(
-        `/api/customer?phone=${encodeURIComponent(whatsappNumber)}`
+        `/api/customer?phone=${encodeURIComponent(phone)}`
       );
       const result = await response.json();
 
@@ -142,8 +144,11 @@ const Index = () => {
       return;
     }
 
-    if (!responsibleName || !whatsappNumber) {
-      toast.error("Preencha os dados do responsável");
+    const phone = normalizePhone(whatsappNumber);
+    if (!responsibleName || !phone) {
+      toast.error(
+        phone ? "Preencha os dados do responsável" : "Número de WhatsApp inválido"
+      );
       return;
     }
 
@@ -160,17 +165,27 @@ const Index = () => {
           },
           body: JSON.stringify({
             name: responsibleName,
-            phone: whatsappNumber,
+            phone,
           }),
         });
 
         const customerResult = await customerResponse.json();
 
-        if (!customerResponse.ok || !customerResult.success) {
+        if (customerResponse.status === 409) {
+          const lookupResponse = await fetch(
+            `/api/customer?phone=${encodeURIComponent(phone)}`
+          );
+          const lookupResult = await lookupResponse.json();
+          if (!lookupResponse.ok || !lookupResult.success) {
+            throw new Error(customerResult.message || "Cliente já cadastrado");
+          }
+          finalCustomerId = lookupResult.data.id;
+        } else if (!customerResponse.ok || !customerResult.success) {
           throw new Error(customerResult.message || "Erro ao criar cliente");
+        } else {
+          finalCustomerId = customerResult.data.id;
         }
 
-        finalCustomerId = customerResult.data.id;
         setCustomerId(finalCustomerId);
       }
 
